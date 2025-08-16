@@ -2,13 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Complaint from '@/models/Complaint';
 import { generateTrackingId } from '@/lib/utils';
+import { NLPService } from '@/lib/nlp-service';
+import { EmailService } from '@/lib/email-service';
 
 export async function POST(request: NextRequest) {
   try {
     await connectDB();
     
     const body = await request.json();
-    const { name, email, department, category, description } = body;
+    const { name, email, department, category, description, images, documents } = body;
 
     // Validation
     if (!name || !email || !department || !category || !description) {
@@ -29,24 +31,81 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // NLP Analysis
+    const nlpService = NLPService.getInstance();
+    const nlpAnalysis = nlpService.analyzeComplaint(description);
+
+    // Create complaint with NLP insights
     const complaint = new Complaint({
       trackingId,
       name,
       email,
-      department,
+      department: nlpAnalysis.suggestedDepartment || department,
       category,
       description,
       status: 'Pending',
+      priority: nlpAnalysis.priority,
       dateFiled: new Date(),
+      
+      // NLP Analysis
+      sentiment: nlpAnalysis.sentiment,
+      keywords: nlpAnalysis.keywords,
+      urgency: nlpAnalysis.urgency,
+      complexity: nlpAnalysis.complexity,
+      tags: nlpAnalysis.tags,
+      
+      // Media
+      images: images || [],
+      documents: documents || [],
+      
+      // Analytics
+      viewCount: 0,
+      responseTime: null,
+      satisfaction: null,
+      
+      // Routing
+      assignedTo: null,
+      estimatedResolution: null,
+      
+      // Escalation
+      escalationLevel: 0,
+      escalationReason: null,
+      escalatedAt: null,
     });
 
     await complaint.save();
+
+    // Send email notification
+    try {
+      const emailService = EmailService.getInstance();
+      await emailService.sendComplaintConfirmation({
+        trackingId: trackingId!,
+        status: complaint.status,
+        department: complaint.department,
+        category: complaint.category,
+        complainantName: complaint.name,
+        complainantEmail: complaint.email,
+        description: complaint.description,
+      });
+    } catch (emailError) {
+      console.error('Email notification failed:', emailError);
+      // Don't fail the request if email fails
+    }
 
     return NextResponse.json({
       success: true,
       trackingId,
       message: 'Complaint submitted successfully',
       complaint,
+      nlpAnalysis: {
+        sentiment: nlpAnalysis.sentiment,
+        priority: nlpAnalysis.priority,
+        urgency: nlpAnalysis.urgency,
+        complexity: nlpAnalysis.complexity,
+        suggestedDepartment: nlpAnalysis.suggestedDepartment,
+        keywords: nlpAnalysis.keywords,
+        tags: nlpAnalysis.tags,
+      },
     });
   } catch (error: any) {
     console.error('Error creating complaint:', error);

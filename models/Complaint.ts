@@ -8,11 +8,37 @@ export interface IComplaint {
   department: string;
   category: string;
   description: string;
-  status: 'Pending' | 'In Progress' | 'Resolved';
+  status: 'Pending' | 'In Progress' | 'Resolved' | 'Escalated' | 'Closed';
+  priority: 'Low' | 'Medium' | 'High' | 'Critical';
   dateFiled: Date;
   reply?: string;
   adminReply?: string;
   updatedAt: Date;
+  
+  // NLP Analysis
+  sentiment?: 'positive' | 'negative' | 'neutral';
+  keywords?: string[];
+  urgency?: number; // 1-10 scale
+  complexity?: number; // 1-10 scale
+  
+  // Media
+  images?: string[];
+  documents?: string[];
+  
+  // Analytics
+  viewCount?: number;
+  responseTime?: number; // in hours
+  satisfaction?: number; // 1-5 scale
+  
+  // Routing
+  assignedTo?: string;
+  estimatedResolution?: Date;
+  tags?: string[];
+  
+  // Escalation
+  escalationLevel?: number;
+  escalationReason?: string;
+  escalatedAt?: Date;
 }
 
 const complaintSchema = new mongoose.Schema<IComplaint>({
@@ -43,8 +69,13 @@ const complaintSchema = new mongoose.Schema<IComplaint>({
   },
   status: {
     type: String,
-    enum: ['Pending', 'In Progress', 'Resolved'],
+    enum: ['Pending', 'In Progress', 'Resolved', 'Escalated', 'Closed'],
     default: 'Pending',
+  },
+  priority: {
+    type: String,
+    enum: ['Low', 'Medium', 'High', 'Critical'],
+    default: 'Medium',
   },
   dateFiled: {
     type: Date,
@@ -60,6 +91,52 @@ const complaintSchema = new mongoose.Schema<IComplaint>({
     type: Date,
     default: Date.now,
   },
+  
+  // NLP Analysis
+  sentiment: {
+    type: String,
+    enum: ['positive', 'negative', 'neutral'],
+  },
+  keywords: [String],
+  urgency: {
+    type: Number,
+    min: 1,
+    max: 10,
+  },
+  complexity: {
+    type: Number,
+    min: 1,
+    max: 10,
+  },
+  
+  // Media
+  images: [String],
+  documents: [String],
+  
+  // Analytics
+  viewCount: {
+    type: Number,
+    default: 0,
+  },
+  responseTime: Number,
+  satisfaction: {
+    type: Number,
+    min: 1,
+    max: 5,
+  },
+  
+  // Routing
+  assignedTo: String,
+  estimatedResolution: Date,
+  tags: [String],
+  
+  // Escalation
+  escalationLevel: {
+    type: Number,
+    default: 0,
+  },
+  escalationReason: String,
+  escalatedAt: Date,
 });
 
 // Update the updatedAt field before saving
