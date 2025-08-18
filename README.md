@@ -1,5 +1,4 @@
-live link of the proejct    https://complaint-raise.vercel.app/
-
+live link of the proejct   https://gri-jade.vercel.app/complaint
 
 # 🚀 Advanced Grievance Redressal Portal
 
