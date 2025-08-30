@@ -267,9 +267,6 @@ Set these in your deployment platform:
 4. Add tests for new features
 5. Submit a pull request
 
-## 📄 **License**
-
-This project is open source and available under the [MIT License](LICENSE).
 
 ---
 
@@ -522,5 +519,10 @@ For issues and questions:
 - [ ] Escalation system
 
 ---
+
+
+## 📄 **License**
+
+This project is open source and available under the [MIT License](LICENSE).
 
 **Built with ❤️ using Next.js, Tailwind CSS, and MongoDB**
