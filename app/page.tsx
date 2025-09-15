@@ -27,6 +27,9 @@ export default function HomePage() {
               </div>
             </div>
             <div className="flex items-center space-x-4">
+              <Link href="/user/dashboard" className="text-primary-600 hover:text-primary-700 font-medium">
+                My Complaints
+              </Link>
               <Link href="/admin" className="text-primary-600 hover:text-primary-700 font-medium">
                 Admin Login
               </Link>
@@ -47,7 +50,7 @@ export default function HomePage() {
         </div>
 
         {/* Action Cards */}
-        <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+        <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
           {/* File Complaint Card */}
           <div className="card hover:shadow-lg transition-shadow duration-300">
             <div className="text-center">
@@ -95,6 +98,26 @@ export default function HomePage() {
                   Track Complaint
                 </button>
               </form>
+            </div>
+          </div>
+
+          {/* My Complaints Card */}
+          <div className="card hover:shadow-lg transition-shadow duration-300">
+            <div className="text-center">
+              <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-info-100 mb-4">
+                <svg className="h-8 w-8 text-info-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                My Complaints
+              </h3>
+              <p className="text-gray-600 mb-6">
+                View and manage all your submitted complaints in one place.
+              </p>
+              <Link href="/user/dashboard" className="btn-info inline-block">
+                View Dashboard
+              </Link>
             </div>
           </div>
         </div>
