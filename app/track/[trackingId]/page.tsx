@@ -11,14 +11,58 @@ interface Complaint {
   trackingId: string;
   name: string;
   email: string;
+  phone?: string;
   department: string;
   category: string;
+  subCategory?: string;
   description: string;
   status: string;
+  priority: string;
   dateFiled: string;
   reply?: string;
   adminReply?: string;
   updatedAt: string;
+  viewCount?: number;
+  satisfaction?: number;
+  estimatedResolution?: string;
+  statusHistory?: Array<{
+    status: string;
+    updatedAt: string;
+    updatedBy?: string;
+    notes?: string;
+  }>;
+  comments?: Array<{
+    _id: string;
+    text: string;
+    author: string;
+    authorType: string;
+    createdAt: string;
+  }>;
+  attachments?: Array<{
+    _id: string;
+    filename: string;
+    originalName: string;
+    url: string;
+    fileType: string;
+    fileSize: number;
+    uploadedAt: string;
+  }>;
+  location?: {
+    address?: string;
+    coordinates?: {
+      lat: number;
+      lng: number;
+    };
+    city?: string;
+    state?: string;
+    pincode?: string;
+  };
+  resolution?: {
+    description: string;
+    resolvedBy: string;
+    resolvedAt: string;
+    resolutionType: string;
+  };
 }
 
 export default function TrackComplaintPage({ params }: { params: { trackingId: string } }) {
@@ -129,11 +173,21 @@ export default function TrackComplaintPage({ params }: { params: { trackingId: s
             </div>
           </div>
 
-          {/* Status Badge */}
+          {/* Status and Priority Badges */}
           <div className="text-center mb-8">
-            <span className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-medium border ${getStatusBadge(complaint.status)}`}>
-              Status: {complaint.status}
-            </span>
+            <div className="flex justify-center space-x-4">
+              <span className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-medium border ${getStatusBadge(complaint.status)}`}>
+                Status: {complaint.status}
+              </span>
+              <span className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-medium ${
+                complaint.priority === 'Critical' ? 'text-red-600 bg-red-100' :
+                complaint.priority === 'High' ? 'text-orange-600 bg-orange-100' :
+                complaint.priority === 'Medium' ? 'text-yellow-600 bg-yellow-100' :
+                'text-green-600 bg-green-100'
+              }`}>
+                Priority: {complaint.priority}
+              </span>
+            </div>
           </div>
 
           {/* Complaint Details */}
@@ -192,6 +246,170 @@ export default function TrackComplaintPage({ params }: { params: { trackingId: s
               </div>
             </div>
           )}
+
+          {/* Resolution Details */}
+          {complaint.resolution && (
+            <div className="mb-8">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Resolution Details</h3>
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <div className="grid md:grid-cols-2 gap-4 mb-3">
+                  <div>
+                    <p className="text-sm font-medium text-green-900">Resolution Type:</p>
+                    <p className="text-green-800">{complaint.resolution.resolutionType}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-green-900">Resolved By:</p>
+                    <p className="text-green-800">{complaint.resolution.resolvedBy}</p>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-green-900 mb-2">Resolution Description:</p>
+                  <p className="text-green-800 whitespace-pre-wrap">{complaint.resolution.description}</p>
+                </div>
+                <p className="text-sm text-green-700 mt-2">
+                  Resolved on: {formatDate(new Date(complaint.resolution.resolvedAt))}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Status History */}
+          {complaint.statusHistory && complaint.statusHistory.length > 0 && (
+            <div className="mb-8">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Status History</h3>
+              <div className="space-y-3">
+                {complaint.statusHistory.map((update, index) => (
+                  <div key={index} className="flex items-start space-x-3 p-3 bg-gray-50 rounded-lg">
+                    <div className="flex-shrink-0">
+                      <div className="w-2 h-2 bg-primary-600 rounded-full mt-2"></div>
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <p className="font-medium text-gray-900">{update.status}</p>
+                        <p className="text-sm text-gray-500">{formatDate(new Date(update.updatedAt))}</p>
+                      </div>
+                      {update.updatedBy && (
+                        <p className="text-sm text-gray-600">Updated by: {update.updatedBy}</p>
+                      )}
+                      {update.notes && (
+                        <p className="text-sm text-gray-700 mt-1">{update.notes}</p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Comments */}
+          {complaint.comments && complaint.comments.length > 0 && (
+            <div className="mb-8">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Comments</h3>
+              <div className="space-y-4">
+                {complaint.comments.map((comment) => (
+                  <div key={comment._id} className="border border-gray-200 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="font-medium text-gray-900">{comment.author}</p>
+                      <p className="text-sm text-gray-500">{formatDate(new Date(comment.createdAt))}</p>
+                    </div>
+                    <p className="text-gray-700">{comment.text}</p>
+                    <span className={`inline-block px-2 py-1 text-xs rounded-full mt-2 ${
+                      comment.authorType === 'admin' ? 'bg-blue-100 text-blue-800' :
+                      comment.authorType === 'system' ? 'bg-gray-100 text-gray-800' :
+                      'bg-green-100 text-green-800'
+                    }`}>
+                      {comment.authorType}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Attachments */}
+          {complaint.attachments && complaint.attachments.length > 0 && (
+            <div className="mb-8">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Attachments</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {complaint.attachments.map((attachment) => (
+                  <div key={attachment._id} className="border border-gray-200 rounded-lg p-4">
+                    <div className="flex items-center space-x-3">
+                      <div className="flex-shrink-0">
+                        <svg className="h-8 w-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                        </svg>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">{attachment.originalName}</p>
+                        <p className="text-sm text-gray-500">
+                          {(attachment.fileSize / 1024).toFixed(1)} KB • {attachment.fileType}
+                        </p>
+                        <p className="text-xs text-gray-400">
+                          Uploaded {formatDate(new Date(attachment.uploadedAt))}
+                        </p>
+                      </div>
+                      <div className="flex-shrink-0">
+                        <a
+                          href={attachment.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary-600 hover:text-primary-700 text-sm font-medium"
+                        >
+                          View
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Location */}
+          {complaint.location && (
+            <div className="mb-8">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Location Details</h3>
+              <div className="bg-gray-50 rounded-lg p-4">
+                {complaint.location.address && (
+                  <p className="text-gray-900 mb-2">
+                    <span className="font-medium">Address:</span> {complaint.location.address}
+                  </p>
+                )}
+                {complaint.location.city && (
+                  <p className="text-gray-700">
+                    {complaint.location.city}
+                    {complaint.location.state && `, ${complaint.location.state}`}
+                    {complaint.location.pincode && ` - ${complaint.location.pincode}`}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Analytics */}
+          <div className="mb-8">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Analytics</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-gray-50 rounded-lg p-4 text-center">
+                <p className="text-2xl font-bold text-gray-900">{complaint.viewCount || 0}</p>
+                <p className="text-sm text-gray-600">Views</p>
+              </div>
+              {complaint.satisfaction && (
+                <div className="bg-gray-50 rounded-lg p-4 text-center">
+                  <p className="text-2xl font-bold text-gray-900">{complaint.satisfaction}/5</p>
+                  <p className="text-sm text-gray-600">Satisfaction</p>
+                </div>
+              )}
+              {complaint.estimatedResolution && (
+                <div className="bg-gray-50 rounded-lg p-4 text-center">
+                  <p className="text-sm font-bold text-gray-900">
+                    {formatDate(new Date(complaint.estimatedResolution))}
+                  </p>
+                  <p className="text-sm text-gray-600">Est. Resolution</p>
+                </div>
+              )}
+            </div>
+          </div>
 
           {/* Actions */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center pt-6">

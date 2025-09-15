@@ -1,26 +1,90 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Complaint from '@/models/Complaint';
-import { generateTrackingId } from '@/lib/utils';
-import { NLPService } from '@/lib/nlp-service';
-import { EmailService } from '@/lib/email-service';
 
+// GET - Get user's complaints
+export async function GET(request: NextRequest) {
+  try {
+    await connectDB();
+    
+    const { searchParams } = new URL(request.url);
+    const email = searchParams.get('email');
+    const status = searchParams.get('status');
+    const category = searchParams.get('category');
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '10');
+    const skip = (page - 1) * limit;
+
+    if (!email) {
+      return NextResponse.json(
+        { error: 'Email is required' },
+        { status: 400 }
+      );
+    }
+
+    // Build filter for user's complaints
+    const filter: any = { email };
+    if (status) filter.status = status;
+    if (category) filter.category = category;
+
+    const complaints = await Complaint.find(filter)
+      .sort({ dateFiled: -1 })
+      .skip(skip)
+      .limit(limit)
+      .select('-comments.isInternal'); // Exclude internal comments
+
+    const total = await Complaint.countDocuments(filter);
+
+    return NextResponse.json({
+      success: true,
+      complaints,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit),
+      },
+    });
+  } catch (error: any) {
+    console.error('Error fetching user complaints:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch complaints' },
+      { status: 500 }
+    );
+  }
+}
+
+// POST - Create new complaint (user)
 export async function POST(request: NextRequest) {
   try {
     await connectDB();
     
     const body = await request.json();
-    const { name, email, department, category, description, images, documents } = body;
+    const { 
+      name, 
+      email, 
+      phone,
+      department, 
+      category, 
+      subCategory,
+      description, 
+      images, 
+      documents,
+      audioFiles,
+      location,
+      tags
+    } = body;
 
     // Validation
     if (!name || !email || !department || !category || !description) {
       return NextResponse.json(
-        { error: 'All fields are required' },
+        { error: 'Name, email, department, category, and description are required' },
         { status: 400 }
       );
     }
 
     // Generate unique tracking ID
+    const { generateTrackingId } = await import('@/lib/utils');
     let trackingId;
     let isUnique = false;
     while (!isUnique) {
@@ -32,16 +96,19 @@ export async function POST(request: NextRequest) {
     }
 
     // NLP Analysis
+    const { NLPService } = await import('@/lib/nlp-service');
     const nlpService = NLPService.getInstance();
     const nlpAnalysis = nlpService.analyzeComplaint(description);
 
-    // Create complaint with NLP insights
+    // Create complaint
     const complaint = new Complaint({
       trackingId,
       name,
       email,
+      phone,
       department: nlpAnalysis.suggestedDepartment || department,
       category,
+      subCategory,
       description,
       status: 'Pending',
       priority: nlpAnalysis.priority,
@@ -52,11 +119,15 @@ export async function POST(request: NextRequest) {
       keywords: nlpAnalysis.keywords,
       urgency: nlpAnalysis.urgency,
       complexity: nlpAnalysis.complexity,
-      tags: nlpAnalysis.tags,
+      tags: [...(tags || []), ...(nlpAnalysis.tags || [])],
       
       // Media
       images: images || [],
       documents: documents || [],
+      audioFiles: audioFiles || [],
+      
+      // Location
+      location: location || undefined,
       
       // Analytics
       viewCount: 0,
@@ -65,18 +136,33 @@ export async function POST(request: NextRequest) {
       
       // Routing
       assignedTo: null,
+      assignedToName: null,
       estimatedResolution: null,
       
       // Escalation
       escalationLevel: 0,
       escalationReason: null,
       escalatedAt: null,
+      
+      // Tracking & History
+      statusHistory: [{
+        status: 'Pending',
+        updatedAt: new Date(),
+        updatedBy: 'system',
+        notes: 'Complaint created'
+      }],
+      comments: [],
+      attachments: [],
+      
+      // Follow-up
+      followUpRequired: false,
     });
 
     await complaint.save();
 
     // Send email notification
     try {
+      const { EmailService } = await import('@/lib/email-service');
       const emailService = EmailService.getInstance();
       await emailService.sendComplaintConfirmation({
         trackingId: trackingId!,
@@ -89,7 +175,6 @@ export async function POST(request: NextRequest) {
       });
     } catch (emailError) {
       console.error('Email notification failed:', emailError);
-      // Don't fail the request if email fails
     }
 
     return NextResponse.json({
@@ -115,66 +200,4 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-
-export async function GET(request: NextRequest) {
-  try {
-    await connectDB();
-    
-    const { searchParams } = new URL(request.url);
-    const status = searchParams.get('status');
-    const department = searchParams.get('department');
-    const category = searchParams.get('category');
-    const priority = searchParams.get('priority');
-    const email = searchParams.get('email'); // For user-specific complaints
-    const search = searchParams.get('search'); // General search
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '10');
-    const skip = (page - 1) * limit;
-
-    // Build filter
-    const filter: any = {};
-    if (status) filter.status = status;
-    if (department) filter.department = department;
-    if (category) filter.category = category;
-    if (priority) filter.priority = priority;
-    if (email) filter.email = email;
-    
-    // General search across multiple fields
-    if (search) {
-      filter.$or = [
-        { trackingId: { $regex: search, $options: 'i' } },
-        { name: { $regex: search, $options: 'i' } },
-        { description: { $regex: search, $options: 'i' } },
-        { tags: { $in: [new RegExp(search, 'i')] } }
-      ];
-    }
-
-    const complaints = await Complaint.find(filter)
-      .sort({ dateFiled: -1 })
-      .skip(skip)
-      .limit(limit)
-      .select('-comments.isInternal'); // Exclude internal comments from user view
-
-    const total = await Complaint.countDocuments(filter);
-
-    return NextResponse.json({
-      success: true,
-      complaints,
-      pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit),
-      },
-    });
-  } catch (error: any) {
-    console.error('Error fetching complaints:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch complaints' },
-      { status: 500 }
-    );
-  }
-}
-
-
 

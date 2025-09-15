@@ -5,10 +5,12 @@ export interface IComplaint {
   trackingId: string;
   name: string;
   email: string;
+  phone?: string;
   department: string;
   category: string;
+  subCategory?: string;
   description: string;
-  status: 'Pending' | 'In Progress' | 'Resolved' | 'Escalated' | 'Closed';
+  status: 'Pending' | 'In Progress' | 'Resolved' | 'Escalated' | 'Closed' | 'Rejected';
   priority: 'Low' | 'Medium' | 'High' | 'Critical';
   dateFiled: Date;
   reply?: string;
@@ -24,6 +26,7 @@ export interface IComplaint {
   // Media
   images?: string[];
   documents?: string[];
+  audioFiles?: string[];
   
   // Analytics
   viewCount?: number;
@@ -32,6 +35,7 @@ export interface IComplaint {
   
   // Routing
   assignedTo?: string;
+  assignedToName?: string;
   estimatedResolution?: Date;
   tags?: string[];
   
@@ -39,7 +43,111 @@ export interface IComplaint {
   escalationLevel?: number;
   escalationReason?: string;
   escalatedAt?: Date;
+  
+  // Tracking & History
+  statusHistory?: StatusUpdate[];
+  comments?: Comment[];
+  attachments?: Attachment[];
+  
+  // Location (for location-based complaints)
+  location?: {
+    address?: string;
+    coordinates?: {
+      lat: number;
+      lng: number;
+    };
+    city?: string;
+    state?: string;
+    pincode?: string;
+  };
+  
+  // Resolution
+  resolution?: {
+    description: string;
+    resolvedBy: string;
+    resolvedAt: Date;
+    resolutionType: 'Fixed' | 'Partial' | 'Not Applicable' | 'Duplicate';
+  };
+  
+  // Follow-up
+  followUpRequired?: boolean;
+  followUpDate?: Date;
+  followUpNotes?: string;
 }
+
+export interface StatusUpdate {
+  status: string;
+  updatedAt: Date;
+  updatedBy?: string;
+  notes?: string;
+}
+
+export interface Comment {
+  _id?: string;
+  text: string;
+  author: string;
+  authorType: 'user' | 'admin' | 'system';
+  createdAt: Date;
+  isInternal?: boolean; // For internal admin notes
+}
+
+export interface Attachment {
+  _id?: string;
+  filename: string;
+  originalName: string;
+  url: string;
+  fileType: string;
+  fileSize: number;
+  uploadedAt: Date;
+  uploadedBy: string;
+}
+
+const statusUpdateSchema = new mongoose.Schema({
+  status: { type: String, required: true },
+  updatedAt: { type: Date, default: Date.now },
+  updatedBy: String,
+  notes: String,
+}, { _id: false });
+
+const commentSchema = new mongoose.Schema({
+  text: { type: String, required: true },
+  author: { type: String, required: true },
+  authorType: { type: String, enum: ['user', 'admin', 'system'], required: true },
+  createdAt: { type: Date, default: Date.now },
+  isInternal: { type: Boolean, default: false },
+}, { _id: true });
+
+const attachmentSchema = new mongoose.Schema({
+  filename: { type: String, required: true },
+  originalName: { type: String, required: true },
+  url: { type: String, required: true },
+  fileType: { type: String, required: true },
+  fileSize: { type: Number, required: true },
+  uploadedAt: { type: Date, default: Date.now },
+  uploadedBy: { type: String, required: true },
+}, { _id: true });
+
+const locationSchema = new mongoose.Schema({
+  address: String,
+  coordinates: {
+    lat: Number,
+    lng: Number,
+  },
+  city: String,
+  state: String,
+  pincode: String,
+}, { _id: false });
+
+const resolutionSchema = new mongoose.Schema({
+  description: { type: String, required: true },
+  resolvedBy: { type: String, required: true },
+  resolvedAt: { type: Date, required: true },
+  resolutionType: { 
+    type: String, 
+    enum: ['Fixed', 'Partial', 'Not Applicable', 'Duplicate'],
+    required: true 
+  },
+}, { _id: false });
 
 const complaintSchema = new mongoose.Schema<IComplaint>({
   trackingId: {
@@ -55,6 +163,7 @@ const complaintSchema = new mongoose.Schema<IComplaint>({
     type: String,
     required: true,
   },
+  phone: String,
   department: {
     type: String,
     required: true,
@@ -63,13 +172,14 @@ const complaintSchema = new mongoose.Schema<IComplaint>({
     type: String,
     required: true,
   },
+  subCategory: String,
   description: {
     type: String,
     required: true,
   },
   status: {
     type: String,
-    enum: ['Pending', 'In Progress', 'Resolved', 'Escalated', 'Closed'],
+    enum: ['Pending', 'In Progress', 'Resolved', 'Escalated', 'Closed', 'Rejected'],
     default: 'Pending',
   },
   priority: {
@@ -81,12 +191,8 @@ const complaintSchema = new mongoose.Schema<IComplaint>({
     type: Date,
     default: Date.now,
   },
-  reply: {
-    type: String,
-  },
-  adminReply: {
-    type: String,
-  },
+  reply: String,
+  adminReply: String,
   updatedAt: {
     type: Date,
     default: Date.now,
@@ -112,6 +218,7 @@ const complaintSchema = new mongoose.Schema<IComplaint>({
   // Media
   images: [String],
   documents: [String],
+  audioFiles: [String],
   
   // Analytics
   viewCount: {
@@ -127,6 +234,7 @@ const complaintSchema = new mongoose.Schema<IComplaint>({
   
   // Routing
   assignedTo: String,
+  assignedToName: String,
   estimatedResolution: Date,
   tags: [String],
   
@@ -137,11 +245,43 @@ const complaintSchema = new mongoose.Schema<IComplaint>({
   },
   escalationReason: String,
   escalatedAt: Date,
+  
+  // Tracking & History
+  statusHistory: [statusUpdateSchema],
+  comments: [commentSchema],
+  attachments: [attachmentSchema],
+  
+  // Location
+  location: locationSchema,
+  
+  // Resolution
+  resolution: resolutionSchema,
+  
+  // Follow-up
+  followUpRequired: { type: Boolean, default: false },
+  followUpDate: Date,
+  followUpNotes: String,
 });
 
 // Update the updatedAt field before saving
 complaintSchema.pre('save', function(next) {
   this.updatedAt = new Date();
+  
+  // Add status to history if status changed
+  if (this.isModified('status') && !this.isNew) {
+    if (!this.statusHistory) {
+      this.statusHistory = [];
+    }
+    
+    // Add current status to history
+    this.statusHistory.push({
+      status: this.status,
+      updatedAt: new Date(),
+      updatedBy: this.assignedTo || 'system',
+      notes: this.isModified('escalationReason') ? this.escalationReason : undefined
+    });
+  }
+  
   next();
 });
 
