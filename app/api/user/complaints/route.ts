@@ -1,39 +1,136 @@
 import { NextRequest, NextResponse } from 'next/server';
-import connectDB from '@/lib/mongodb';
-import Complaint from '@/models/Complaint';
+import { query } from '@/lib/postgres';
 
 // GET - Get user's complaints
 export async function GET(request: NextRequest) {
   try {
-    await connectDB();
+    // Set CORS headers
+    const headers = {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'Access-Control-Allow-Credentials': 'true',
+    };
     
     const { searchParams } = new URL(request.url);
     const email = searchParams.get('email');
     const status = searchParams.get('status');
     const category = searchParams.get('category');
+    const search = searchParams.get('search');
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
-    const skip = (page - 1) * limit;
+    const offset = (page - 1) * limit;
+    
+    console.log('Fetching complaints for:', { email, status, category, search, page, limit });
 
     if (!email) {
       return NextResponse.json(
         { error: 'Email is required' },
-        { status: 400 }
+        { status: 400, headers }
       );
     }
 
-    // Build filter for user's complaints
-    const filter: any = { email };
-    if (status) filter.status = status;
-    if (category) filter.category = category;
+    // First try to get user_id from email if possible
+    let userId = null;
+    try {
+      const userResult = await query('SELECT id FROM users WHERE email = $1', [email]);
+      if (userResult.rows.length > 0) {
+        userId = userResult.rows[0].id;
+        console.log(`Found user_id ${userId} for email ${email}`);
+      }
+    } catch (err) {
+      console.log('Could not find user_id for email:', email);
+    }
 
-    const complaints = await Complaint.find(filter)
-      .sort({ dateFiled: -1 })
-      .skip(skip)
-      .limit(limit)
-      .select('-comments.isInternal'); // Exclude internal comments
+    // Build query with filters - join with departments table for department name
+    // Search by both user_id (for authenticated complaints) and email (for anonymous complaints)
+    let queryText = `
+      SELECT c.*, d.name as department_name, d.code as department_code
+      FROM complaints c
+      LEFT JOIN departments d ON c.department_id = d.id
+      WHERE (c.email = $1 ${userId ? `OR c.user_id = $2` : ''})
+    `;
+    const queryParams: any[] = [email];
+    if (userId) {
+      queryParams.push(userId);
+    }
+    let paramIndex = userId ? 3 : 2;
 
-    const total = await Complaint.countDocuments(filter);
+    if (status) {
+      queryText += ` AND c.status = $${paramIndex}`;
+      queryParams.push(status);
+      paramIndex++;
+    }
+
+    if (category) {
+      queryText += ` AND c.category = $${paramIndex}`;
+      queryParams.push(category);
+      paramIndex++;
+    }
+
+    if (search) {
+      queryText += ` AND (c.title ILIKE $${paramIndex} OR c.description ILIKE $${paramIndex} OR c.tracking_id ILIKE $${paramIndex})`;
+      queryParams.push(`%${search}%`);
+      paramIndex++;
+    }
+
+    queryText += ' ORDER BY c.created_at DESC';
+    queryText += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    queryParams.push(limit, offset);
+
+    const result = await query(queryText, queryParams);
+
+    // Get total count for pagination
+    let countQuery = `SELECT COUNT(*) FROM complaints c WHERE (c.email = $1 ${userId ? `OR c.user_id = $2` : ''})`;
+    const countParams: any[] = [email];
+    if (userId) {
+      countParams.push(userId);
+    }
+    let countParamIndex = userId ? 3 : 2;
+
+    if (status) {
+      countQuery += ` AND c.status = $${countParamIndex}`;
+      countParams.push(status);
+      countParamIndex++;
+    }
+
+    if (category) {
+      countQuery += ` AND c.category = $${countParamIndex}`;
+      countParams.push(category);
+      countParamIndex++;
+    }
+
+    if (search) {
+      countQuery += ` AND (c.title ILIKE $${countParamIndex} OR c.description ILIKE $${countParamIndex} OR c.tracking_id ILIKE $${countParamIndex})`;
+      countParams.push(`%${search}%`);
+    }
+
+    const countResult = await query(countQuery, countParams);
+    const total = parseInt(countResult.rows[0].count);
+
+    console.log(`Found ${result.rows.length} complaints out of ${total} total`);
+
+    // Format complaints to match frontend expectations
+    const complaints = result.rows.map(complaint => ({
+      _id: complaint.id,
+      tracking_id: complaint.tracking_id, // Match dashboard expectation
+      name: complaint.title,
+      email: complaint.email,
+      phone: complaint.phone,
+      department: complaint.department_name || 'Unknown Department',
+      category: complaint.category || 'General',
+      subCategory: complaint.sub_category,
+      description: complaint.description,
+      status: complaint.status || 'Pending',
+      priority: complaint.priority || 'Medium',
+      dateFiled: complaint.created_at,
+      updatedAt: complaint.updated_at,
+      viewCount: 0, // Default values for compatibility
+      adminReply: complaint.notes,
+      reply: complaint.notes, // Alternative field name
+    }));
+
+    console.log('Returning complaints:', complaints.map(c => ({ id: c._id, tracking_id: c.tracking_id, status: c.status })));
 
     return NextResponse.json({
       success: true,
@@ -44,160 +141,31 @@ export async function GET(request: NextRequest) {
         total,
         pages: Math.ceil(total / limit),
       },
-    });
+    }, { headers });
   } catch (error: any) {
     console.error('Error fetching user complaints:', error);
     return NextResponse.json(
       { error: 'Failed to fetch complaints' },
-      { status: 500 }
+      { status: 500, headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        'Access-Control-Allow-Credentials': 'true',
+      } }
     );
   }
 }
 
-// POST - Create new complaint (user)
-export async function POST(request: NextRequest) {
-  try {
-    await connectDB();
-    
-    const body = await request.json();
-    const { 
-      name, 
-      email, 
-      phone,
-      department, 
-      category, 
-      subCategory,
-      description, 
-      images, 
-      documents,
-      audioFiles,
-      location,
-      tags
-    } = body;
-
-    // Validation
-    if (!name || !email || !department || !category || !description) {
-      return NextResponse.json(
-        { error: 'Name, email, department, category, and description are required' },
-        { status: 400 }
-      );
-    }
-
-    // Generate unique tracking ID
-    const { generateTrackingId } = await import('@/lib/utils');
-    let trackingId;
-    let isUnique = false;
-    while (!isUnique) {
-      trackingId = generateTrackingId();
-      const existing = await Complaint.findOne({ trackingId });
-      if (!existing) {
-        isUnique = true;
-      }
-    }
-
-    // NLP Analysis
-    const { NLPService } = await import('@/lib/nlp-service');
-    const nlpService = NLPService.getInstance();
-    const nlpAnalysis = nlpService.analyzeComplaint(description);
-
-    // Create complaint
-    const complaint = new Complaint({
-      trackingId,
-      name,
-      email,
-      phone,
-      department: nlpAnalysis.suggestedDepartment || department,
-      category,
-      subCategory,
-      description,
-      status: 'Pending',
-      priority: nlpAnalysis.priority,
-      dateFiled: new Date(),
-      
-      // NLP Analysis
-      sentiment: nlpAnalysis.sentiment,
-      keywords: nlpAnalysis.keywords,
-      urgency: nlpAnalysis.urgency,
-      complexity: nlpAnalysis.complexity,
-      tags: [...(tags || []), ...(nlpAnalysis.tags || [])],
-      
-      // Media
-      images: images || [],
-      documents: documents || [],
-      audioFiles: audioFiles || [],
-      
-      // Location
-      location: location || undefined,
-      
-      // Analytics
-      viewCount: 0,
-      responseTime: null,
-      satisfaction: null,
-      
-      // Routing
-      assignedTo: null,
-      assignedToName: null,
-      estimatedResolution: null,
-      
-      // Escalation
-      escalationLevel: 0,
-      escalationReason: null,
-      escalatedAt: null,
-      
-      // Tracking & History
-      statusHistory: [{
-        status: 'Pending',
-        updatedAt: new Date(),
-        updatedBy: 'system',
-        notes: 'Complaint created'
-      }],
-      comments: [],
-      attachments: [],
-      
-      // Follow-up
-      followUpRequired: false,
-    });
-
-    await complaint.save();
-
-    // Send email notification
-    try {
-      const { EmailService } = await import('@/lib/email-service');
-      const emailService = EmailService.getInstance();
-      await emailService.sendComplaintConfirmation({
-        trackingId: trackingId!,
-        status: complaint.status,
-        department: complaint.department,
-        category: complaint.category,
-        complainantName: complaint.name,
-        complainantEmail: complaint.email,
-        description: complaint.description,
-      });
-    } catch (emailError) {
-      console.error('Email notification failed:', emailError);
-    }
-
-    return NextResponse.json({
-      success: true,
-      trackingId,
-      message: 'Complaint submitted successfully',
-      complaint,
-      nlpAnalysis: {
-        sentiment: nlpAnalysis.sentiment,
-        priority: nlpAnalysis.priority,
-        urgency: nlpAnalysis.urgency,
-        complexity: nlpAnalysis.complexity,
-        suggestedDepartment: nlpAnalysis.suggestedDepartment,
-        keywords: nlpAnalysis.keywords,
-        tags: nlpAnalysis.tags,
-      },
-    });
-  } catch (error: any) {
-    console.error('Error creating complaint:', error);
-    return NextResponse.json(
-      { error: 'Failed to create complaint' },
-      { status: 500 }
-    );
-  }
+// Handle OPTIONS request for CORS
+export async function OPTIONS(request: NextRequest) {
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'Access-Control-Allow-Credentials': 'true',
+    },
+  });
 }
 

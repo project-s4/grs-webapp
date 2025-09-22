@@ -6,7 +6,7 @@ import { formatDate, getStatusBadge } from '@/lib/utils';
 
 interface Complaint {
   _id: string;
-  trackingId: string;
+  tracking_id: string;
   name: string;
   email: string;
   phone?: string;
@@ -23,35 +23,20 @@ interface Complaint {
   viewCount?: number;
   satisfaction?: number;
   estimatedResolution?: string;
-  statusHistory?: Array<{
-    status: string;
-    updatedAt: string;
-    updatedBy?: string;
-    notes?: string;
-  }>;
-  comments?: Array<{
-    _id: string;
-    text: string;
-    author: string;
-    authorType: string;
-    createdAt: string;
-  }>;
-  attachments?: Array<{
-    _id: string;
-    filename: string;
-    originalName: string;
-    url: string;
-    fileType: string;
-    fileSize: number;
-    uploadedAt: string;
-  }>;
+}
+
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
 }
 
 export default function UserDashboard() {
+  const [user, setUser] = useState<User | null>(null);
   const [complaints, setComplaints] = useState<Complaint[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [email, setEmail] = useState('');
   const [filter, setFilter] = useState({
     status: '',
     category: '',
@@ -61,63 +46,128 @@ export default function UserDashboard() {
     page: 1,
     limit: 10,
     total: 0,
-    pages: 0
+    pages: 1
   });
 
+  // ONE-TIME initialization without any dependencies
   useEffect(() => {
-    // Get email from localStorage or prompt user
-    const savedEmail = localStorage.getItem('userEmail');
-    if (savedEmail) {
-      setEmail(savedEmail);
-      fetchComplaints(savedEmail);
-    } else {
-      const userEmail = prompt('Please enter your email to view your complaints:');
-      if (userEmail) {
-        setEmail(userEmail);
-        localStorage.setItem('userEmail', userEmail);
-        fetchComplaints(userEmail);
-      } else {
-        setError('Email is required to view complaints');
-        setLoading(false);
-      }
-    }
+    initializePage();
   }, []);
 
-  const fetchComplaints = async (userEmail: string, page = 1) => {
+  const initializePage = () => {
+    // Check authentication
+    const token = localStorage.getItem('token');
+    if (!token) {
+      window.location.href = '/login';
+      return;
+    }
+
     try {
-      setLoading(true);
+      // Decode token
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      console.log('Token payload:', { id: payload.id, name: payload.name, email: payload.email, role: payload.role });
+      
+      // Check if user is citizen
+      if (payload.role !== 'citizen') {
+        if (payload.role === 'admin') {
+          window.location.href = '/admin/dashboard';
+        } else if (payload.role === 'department' || payload.role === 'department_admin') {
+          window.location.href = '/department/dashboard';
+        } else {
+          window.location.href = '/login';
+        }
+        return;
+      }
+      
+      // Set user data with validation
+      const userData = {
+        id: payload.id?.toString() || '',
+        name: payload.name || 'User',
+        email: payload.email || '',
+        role: payload.role || 'citizen'
+      };
+      console.log('Setting user data:', userData);
+      setUser(userData);
+      
+      // Fetch complaints
+      if (userData.email) {
+        fetchComplaints(userData.email);
+      } else {
+        setLoading(false);
+      }
+    } catch (error) {
+      console.error('Token error:', error);
+      localStorage.removeItem('token');
+      window.location.href = '/login';
+    }
+  };
+
+  const fetchComplaints = async (userEmail: string, page = 1, filters = filter) => {
+    try {
       const params = new URLSearchParams({
         email: userEmail,
         page: page.toString(),
-        limit: pagination.limit.toString()
+        limit: pagination.limit.toString(),
+        ...(filters.status && { status: filters.status }),
+        ...(filters.category && { category: filters.category }),
+        ...(filters.search && { search: filters.search })
+      });
+      
+      const url = `/api/user/complaints?${params}`;
+      console.log('Fetching complaints from:', url);
+      
+      const response = await fetch(url);
+      const data = await response.json();
+      
+      console.log('API Response:', {
+        status: response.status,
+        ok: response.ok,
+        data: data
       });
 
-      if (filter.status) params.append('status', filter.status);
-      if (filter.category) params.append('category', filter.category);
-
-      const response = await fetch(`/api/user/complaints?${params}`);
-      const data = await response.json();
-
       if (response.ok) {
-        setComplaints(data.complaints);
-        setPagination(data.pagination);
+        console.log('Complaints received:', data.complaints?.length || 0);
+        setComplaints(data.complaints || []);
+        setPagination({
+          page: data.pagination?.page || 1,
+          limit: data.pagination?.limit || 10,
+          total: data.pagination?.total || 0,
+          pages: data.pagination?.pages || 1
+        });
+        setError('');
       } else {
+        console.error('API Error:', data);
         setError(data.error || 'Failed to fetch complaints');
       }
     } catch (err) {
+      console.error('Network error:', err);
       setError('Network error. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleFilterChange = (key: string, value: string) => {
-    setFilter(prev => ({ ...prev, [key]: value }));
-    fetchComplaints(email, 1);
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    window.location.href = '/login';
+  };
+
+  const logout = handleLogout; // Alias for consistency
+
+  const handleFilterChange = (filterType: string, value: string) => {
+    const newFilter = { ...filter, [filterType]: value };
+    setFilter(newFilter);
+    if (user?.email) {
+      setLoading(true);
+      fetchComplaints(user.email, 1, newFilter);
+    }
   };
 
   const handlePageChange = (newPage: number) => {
-    fetchComplaints(email, newPage);
+    if (newPage >= 1 && newPage <= pagination.pages && user?.email) {
+      setLoading(true);
+      fetchComplaints(user.email, newPage, filter);
+    }
   };
 
   const getPriorityColor = (priority: string) => {
@@ -132,9 +182,9 @@ export default function UserDashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-primary-50 to-blue-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <p className="text-gray-600">Loading your complaints...</p>
         </div>
       </div>
@@ -143,10 +193,10 @@ export default function UserDashboard() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-danger-50 to-red-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-red-50 to-red-100 flex items-center justify-center">
         <div className="text-center">
-          <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-danger-100 mb-6">
-            <svg className="h-8 w-8 text-danger-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-red-100 mb-6">
+            <svg className="h-8 w-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
             </svg>
           </div>
@@ -161,26 +211,35 @@ export default function UserDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-50 to-blue-50">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50">
       {/* Header */}
       <header className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-6">
             <div className="flex items-center">
-              <Link href="/" className="text-primary-600 hover:text-primary-700">
+              <Link href="/" className="text-blue-600 hover:text-blue-700">
                 <svg className="h-6 w-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                 </svg>
               </Link>
-              <h1 className="text-2xl font-bold text-primary-600">
+              <h1 className="text-2xl font-bold text-blue-600">
                 My Complaints Dashboard
               </h1>
             </div>
             <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-600">Logged in as: {email}</span>
+              <div className="flex flex-col">
+                <span className="text-sm font-medium text-gray-900">Welcome, {user?.name || 'User'}</span>
+                <span className="text-xs text-gray-500">{user?.email || 'Loading...'}</span>
+              </div>
               <Link href="/complaint" className="btn-primary">
                 File New Complaint
               </Link>
+              <button
+                onClick={logout}
+                className="text-red-600 hover:text-red-700 text-sm font-medium"
+              >
+                Logout
+              </button>
             </div>
           </div>
         </div>
@@ -197,7 +256,7 @@ export default function UserDashboard() {
               <select
                 value={filter.status}
                 onChange={(e) => handleFilterChange('status', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">All Statuses</option>
                 <option value="Pending">Pending</option>
@@ -213,7 +272,7 @@ export default function UserDashboard() {
               <select
                 value={filter.category}
                 onChange={(e) => handleFilterChange('category', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">All Categories</option>
                 <option value="Infrastructure">Infrastructure</option>
@@ -230,7 +289,7 @@ export default function UserDashboard() {
                 placeholder="Search complaints..."
                 value={filter.search}
                 onChange={(e) => setFilter(prev => ({ ...prev, search: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
           </div>
@@ -270,7 +329,7 @@ export default function UserDashboard() {
                     <div className="flex-1">
                       <div className="flex items-center space-x-3 mb-2">
                         <h3 className="text-lg font-medium text-gray-900">
-                          {complaint.trackingId}
+                          {complaint.tracking_id}
                         </h3>
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusBadge(complaint.status)}`}>
                           {complaint.status}
@@ -305,9 +364,9 @@ export default function UserDashboard() {
                       </p>
 
                       {complaint.adminReply && (
-                        <div className="bg-primary-50 border border-primary-200 rounded-lg p-3 mb-3">
-                          <p className="text-sm font-medium text-primary-900 mb-1">Official Reply:</p>
-                          <p className="text-sm text-primary-800">{complaint.adminReply}</p>
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
+                          <p className="text-sm font-medium text-blue-900 mb-1">Official Reply:</p>
+                          <p className="text-sm text-blue-800">{complaint.adminReply}</p>
                         </div>
                       )}
 
@@ -327,7 +386,7 @@ export default function UserDashboard() {
 
                     <div className="ml-4 flex-shrink-0">
                       <Link
-                        href={`/track/${complaint.trackingId}`}
+                        href={`/track/${complaint.tracking_id}`}
                         className="btn-secondary text-sm"
                       >
                         View Details

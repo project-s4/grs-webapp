@@ -2,13 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { formatDate, getStatusBadge, departments, categories } from '@/lib/utils';
-
-
+import { useRouter } from 'next/navigation';
+import { formatDate, getStatusBadge, categories } from '@/lib/utils';
 
 interface Complaint {
   _id: string;
-  trackingId: string;
+  tracking_id: string;
   name: string;
   email: string;
   department: string;
@@ -17,62 +16,120 @@ interface Complaint {
   status: string;
   dateFiled: string;
   adminReply?: string;
+  assigned_to?: number;
   updatedAt: string;
 }
 
-interface Pagination {
-  page: number;
-  limit: number;
-  total: number;
-  pages: number;
-}
-
 export default function AdminDashboardPage() {
+  const router = useRouter();
+  const [admin, setAdmin] = useState<any>(null);
   const [complaints, setComplaints] = useState<Complaint[]>([]);
-  const [pagination, setPagination] = useState<Pagination>({ page: 1, limit: 10, total: 0, pages: 0 });
   const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState({
-    status: '',
-    department: '',
-    category: '',
-  });
+  const [departments, setDepartments] = useState<{ id: number; name: string; }[]>([]);
+  const [departmentUsers, setDepartmentUsers] = useState<{ id: number; name: string; department_id: number; }[]>([]);
+  const [initialized, setInitialized] = useState(false);
   const [selectedComplaint, setSelectedComplaint] = useState<Complaint | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [assignmentData, setAssignmentData] = useState({ assigned_to: '' });
+  const [assigning, setAssigning] = useState(false);
   const [updateData, setUpdateData] = useState({
     status: '',
     adminReply: '',
+    assigned_to: '',
   });
   const [updating, setUpdating] = useState(false);
 
+  // Simple initialization
   useEffect(() => {
-    fetchComplaints();
-  }, [filters, pagination.page]);
+    if (initialized) return;
+    
+    const token = localStorage.getItem('token');
+    if (!token) {
+      window.location.href = '/admin/login';
+      return;
+    }
 
-  const fetchComplaints = async () => {
     try {
-      const params = new URLSearchParams({
-        page: pagination.page.toString(),
-        limit: pagination.limit.toString(),
-        ...filters,
-      });
-
-      const response = await fetch(`/api/complaints?${params}`);
-      const data = await response.json();
-
-      if (response.ok) {
-        setComplaints(data.complaints);
-        setPagination(data.pagination);
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      if (payload.role !== 'admin') {
+        window.location.href = '/admin/login';
+        return;
       }
+      
+      setAdmin(payload);
+      setInitialized(true);
+      
+      // Load initial data
+      loadInitialData();
     } catch (error) {
-      console.error('Error fetching complaints:', error);
+      console.error('Invalid token:', error);
+      window.location.href = '/admin/login';
+    }
+  }, [initialized]);
+
+  const loadInitialData = async () => {
+    try {
+      await Promise.all([
+        fetchDepartments(),
+        fetchDepartmentUsers(),
+        fetchComplaints()
+      ]);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleFilterChange = (key: string, value: string) => {
-    setFilters(prev => ({ ...prev, [key]: value }));
-    setPagination(prev => ({ ...prev, page: 1 }));
+  const fetchDepartments = async () => {
+    try {
+      const response = await fetch('/api/departments');
+      const data = await response.json();
+      if (Array.isArray(data)) {
+        setDepartments(data);
+      }
+    } catch (error) {
+      console.error('Error fetching departments:', error);
+    }
+  };
+
+  const fetchDepartmentUsers = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/users/department-users', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      const data = await response.json();
+      if (Array.isArray(data)) {
+        setDepartmentUsers(data);
+      }
+    } catch (error) {
+      console.error('Error fetching department users:', error);
+    }
+  };
+
+  const fetchComplaints = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/complaints?page=1&limit=10', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setComplaints(data.complaints || []);
+      }
+    } catch (error) {
+      console.error('Error fetching complaints:', error);
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    window.location.href = '/admin/login';
   };
 
   const handleUpdateComplaint = async () => {
@@ -91,7 +148,7 @@ export default function AdminDashboardPage() {
       if (response.ok) {
         setShowModal(false);
         setSelectedComplaint(null);
-        setUpdateData({ status: '', adminReply: '' });
+        setUpdateData({ status: '', adminReply: '', assigned_to: '' });
         fetchComplaints();
       }
     } catch (error) {
@@ -106,14 +163,49 @@ export default function AdminDashboardPage() {
     setUpdateData({
       status: complaint.status,
       adminReply: complaint.adminReply || '',
+      assigned_to: complaint.assigned_to?.toString() || '',
     });
     setShowModal(true);
   };
 
-  const handleLogout = () => {
-    // Clear admin session and redirect to home
-    window.location.href = '/';
+  const openAssignModal = (complaint: Complaint) => {
+    setSelectedComplaint(complaint);
+    setAssignmentData({
+      assigned_to: complaint.assigned_to?.toString() || '',
+    });
+    setShowAssignModal(true);
   };
+
+  const handleAssignComplaint = async () => {
+    if (!selectedComplaint) return;
+
+    setAssigning(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/complaints/${selectedComplaint._id}/assign`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          assigned_to: assignmentData.assigned_to ? parseInt(assignmentData.assigned_to) : null,
+        }),
+      });
+
+      if (response.ok) {
+        setShowAssignModal(false);
+        setSelectedComplaint(null);
+        setAssignmentData({ assigned_to: '' });
+        fetchComplaints();
+      }
+    } catch (error) {
+      console.error('Error assigning complaint:', error);
+    } finally {
+      setAssigning(false);
+    }
+  };
+
 
   if (loading) {
     return (
@@ -138,7 +230,14 @@ export default function AdminDashboardPage() {
               </h1>
             </div>
             <div className="flex items-center space-x-4">
-              <span className="text-gray-600">Welcome, Admin</span>
+              <div className="text-right">
+                <div className="text-gray-600">Welcome, Admin</div>
+                {admin && admin.department_id && (
+                  <div className="text-sm text-gray-500">
+                    Department: {departments.find(d => d.id === admin.department_id)?.name || 'Loading...'}
+                  </div>
+                )}
+              </div>
               <button
                 onClick={handleLogout}
                 className="text-primary-600 hover:text-primary-700 font-medium"
@@ -156,7 +255,7 @@ export default function AdminDashboardPage() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <div className="card text-center">
             <h3 className="text-lg font-semibold text-gray-900">Total Complaints</h3>
-            <p className="text-3xl font-bold text-primary-600">{pagination.total}</p>
+            <p className="text-3xl font-bold text-primary-600">{complaints.length}</p>
           </div>
           <div className="card text-center">
             <h3 className="text-lg font-semibold text-gray-900">Pending</h3>
@@ -185,9 +284,8 @@ export default function AdminDashboardPage() {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
               <select
-                value={filters.status}
-                onChange={(e) => handleFilterChange('status', e.target.value)}
                 className="form-select"
+                disabled
               >
                 <option value="">All Statuses</option>
                 <option value="Pending">Pending</option>
@@ -198,22 +296,20 @@ export default function AdminDashboardPage() {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Department</label>
               <select
-                value={filters.department}
-                onChange={(e) => handleFilterChange('department', e.target.value)}
                 className="form-select"
+                disabled
               >
                 <option value="">All Departments</option>
                 {departments.map((dept) => (
-                  <option key={dept} value={dept}>{dept}</option>
+                  <option key={dept.id} value={dept.name}>{dept.name}</option>
                 ))}
               </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
               <select
-                value={filters.category}
-                onChange={(e) => handleFilterChange('category', e.target.value)}
                 className="form-select"
+                disabled
               >
                 <option value="">All Categories</option>
                 {categories.map((cat) => (
@@ -253,6 +349,9 @@ export default function AdminDashboardPage() {
                       Status
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Assigned To
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Date Filed
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -265,7 +364,7 @@ export default function AdminDashboardPage() {
                     <tr key={complaint._id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className="font-mono text-sm text-primary-600">
-                          {complaint.trackingId}
+                          {complaint.tracking_id}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -286,15 +385,28 @@ export default function AdminDashboardPage() {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {complaint.assigned_to ? 
+                          departmentUsers.find(u => u.id === complaint.assigned_to)?.name || 'Unknown User'
+                          : 'Unassigned'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {formatDate(new Date(complaint.dateFiled))}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <button
-                          onClick={() => openUpdateModal(complaint)}
-                          className="text-primary-600 hover:text-primary-900"
-                        >
-                          Update
-                        </button>
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={() => openUpdateModal(complaint)}
+                            className="text-primary-600 hover:text-primary-900"
+                          >
+                            Update
+                          </button>
+                          <button
+                            onClick={() => openAssignModal(complaint)}
+                            className="text-blue-600 hover:text-blue-900"
+                          >
+                            Assign
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -303,30 +415,10 @@ export default function AdminDashboardPage() {
             </div>
           )}
 
-          {/* Pagination */}
-          {pagination.pages > 1 && (
-            <div className="flex items-center justify-between mt-6">
-              <div className="text-sm text-gray-700">
-                Showing {((pagination.page - 1) * pagination.limit) + 1} to {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total} results
-              </div>
-              <div className="flex space-x-2">
-                <button
-                  onClick={() => setPagination(prev => ({ ...prev, page: prev.page - 1 }))}
-                  disabled={pagination.page === 1}
-                  className="px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Previous
-                </button>
-                <button
-                  onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
-                  disabled={pagination.page === pagination.pages}
-                  className="px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Next
-                </button>
-              </div>
-            </div>
-          )}
+          {/* Simple complaint count display */}
+          <div className="mt-6 text-sm text-gray-600 text-center">
+            Showing {complaints.length} complaint{complaints.length !== 1 ? 's' : ''}
+          </div>
         </div>
       </main>
 
@@ -336,7 +428,7 @@ export default function AdminDashboardPage() {
           <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
             <div className="mt-3">
               <h3 className="text-lg font-medium text-gray-900 mb-4">
-                Update Complaint: {selectedComplaint.trackingId}
+                Update Complaint: {selectedComplaint.tracking_id}
               </h3>
               
               <div className="space-y-4">
@@ -350,6 +442,22 @@ export default function AdminDashboardPage() {
                     <option value="Pending">Pending</option>
                     <option value="In Progress">In Progress</option>
                     <option value="Resolved">Resolved</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Assign To Department User</label>
+                  <select
+                    value={updateData.assigned_to}
+                    onChange={(e) => setUpdateData(prev => ({ ...prev, assigned_to: e.target.value }))}
+                    className="form-select"
+                  >
+                    <option value="">Unassigned</option>
+                    {departmentUsers.map((user) => (
+                      <option key={user.id} value={user.id.toString()}>
+                        {user.name} ({departments.find(d => d.id === user.department_id)?.name})
+                      </option>
+                    ))}
                   </select>
                 </div>
                 
@@ -378,6 +486,63 @@ export default function AdminDashboardPage() {
                   className="btn-primary disabled:opacity-50"
                 >
                   {updating ? 'Updating...' : 'Update'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Assignment Modal */}
+      {showAssignModal && selectedComplaint && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">
+                Assign Complaint: {selectedComplaint.tracking_id}
+              </h3>
+              
+              <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+                <h4 className="font-medium text-gray-900">{selectedComplaint.name}</h4>
+                <p className="text-sm text-gray-600 mt-1">{selectedComplaint.department} - {selectedComplaint.category}</p>
+                <p className="text-xs text-gray-500 mt-1 truncate">{selectedComplaint.description}</p>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Assign To Department User</label>
+                <select
+                  value={assignmentData.assigned_to}
+                  onChange={(e) => setAssignmentData(prev => ({ ...prev, assigned_to: e.target.value }))}
+                  className="form-select"
+                >
+                  <option value="">Select User</option>
+                  {departmentUsers
+                    .filter(user => {
+                      // Filter by admin's department - admin should only assign to users in their department
+                      return admin && admin.department_id ? user.department_id === admin.department_id : false;
+                    })
+                    .map((user) => (
+                    <option key={user.id} value={user.id.toString()}>
+                      {user.name} ({departments.find(d => d.id === user.department_id)?.name})
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500 mt-1">Only showing users from your department: {admin?.department_id && departments.find(d => d.id === admin.department_id)?.name}</p>
+              </div>
+
+              <div className="flex justify-end space-x-3 mt-6">
+                <button
+                  onClick={() => setShowAssignModal(false)}
+                  className="btn-secondary"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleAssignComplaint}
+                  disabled={assigning || !assignmentData.assigned_to}
+                  className="btn-primary disabled:opacity-50"
+                >
+                  {assigning ? 'Assigning...' : 'Assign'}
                 </button>
               </div>
             </div>

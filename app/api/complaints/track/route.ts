@@ -1,11 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import connectDB from '@/lib/mongodb';
-import Complaint from '@/models/Complaint';
+import { query } from '@/lib/postgres';
 
 export async function GET(request: NextRequest) {
   try {
-    await connectDB();
-    
     const { searchParams } = new URL(request.url);
     const trackingId = searchParams.get('trackingId');
 
@@ -16,16 +13,24 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const complaint = await Complaint.findOne({ trackingId });
+    const result = await query(
+      'SELECT * FROM complaints WHERE tracking_id = $1',
+      [trackingId]
+    );
 
-    if (!complaint) {
+    if (result.rows.length === 0) {
       return NextResponse.json(
         { error: 'Complaint not found with this tracking ID' },
         { status: 404 }
       );
     }
 
-    return NextResponse.json({ complaint });
+    const complaint = result.rows[0];
+
+    return NextResponse.json({ 
+      success: true,
+      complaint 
+    });
   } catch (error: any) {
     console.error('Error tracking complaint:', error);
     return NextResponse.json(

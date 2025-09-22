@@ -27,10 +27,16 @@ export default function HomePage() {
               </div>
             </div>
             <div className="flex items-center space-x-4">
-              <Link href="/user/dashboard" className="text-primary-600 hover:text-primary-700 font-medium">
-                My Complaints
+              <Link href="/login" className="text-primary-600 hover:text-primary-700 font-medium">
+                Citizen Login
               </Link>
-              <Link href="/admin" className="text-primary-600 hover:text-primary-700 font-medium">
+              <Link href="/register" className="bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 font-medium">
+                Register
+              </Link>
+              <Link href="/department/login" className="text-blue-600 hover:text-blue-700 font-medium">
+                Department Login
+              </Link>
+              <Link href="/admin/login" className="text-gray-600 hover:text-gray-700 font-medium">
                 Admin Login
               </Link>
             </div>
@@ -65,7 +71,7 @@ export default function HomePage() {
               <p className="text-gray-600 mb-6">
                 Submit your grievance with all necessary details. We'll assign a tracking ID for easy follow-up.
               </p>
-              <Link href="/complaint" className="btn-primary inline-block">
+              <Link href="/login?redirect=/complaint" className="btn-primary inline-block">
                 File Complaint
               </Link>
             </div>
@@ -115,7 +121,7 @@ export default function HomePage() {
               <p className="text-gray-600 mb-6">
                 View and manage all your submitted complaints in one place.
               </p>
-              <Link href="/user/dashboard" className="btn-info inline-block">
+              <Link href="/login?redirect=/user/dashboard" className="btn-info inline-block">
                 View Dashboard
               </Link>
             </div>

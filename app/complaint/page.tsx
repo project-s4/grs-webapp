@@ -1,70 +1,132 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, CheckCircle, Mic, Camera, FileText } from 'lucide-react';
-import VoiceImageComplaintForm from '@/components/VoiceImageComplaintForm';
-import AIChatbot from '@/components/AIChatbot';
+// import VoiceImageComplaintForm from '@/components/VoiceImageComplaintForm';
+// import AIChatbot from '@/components/AIChatbot';
+import AuthGuard from '@/components/auth-guard';
+import { complaintService, ComplaintCreate } from '@/services/complaints';
+import { departmentService, Department } from '@/services/departments';
+import toast from 'react-hot-toast';
 
-export default function ComplaintPage() {
+function ComplaintPageContent() {
   const [complaintType, setComplaintType] = useState<'text' | 'voice-image' | null>(null);
   const [success, setSuccess] = useState(false);
   const [trackingId, setTrackingId] = useState('');
   const [error, setError] = useState('');
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchDepartments = async () => {
+      try {
+        const departmentData = await departmentService.getDepartments();
+        setDepartments(departmentData);
+      } catch (error: any) {
+        toast.error('Failed to load departments');
+        console.error('Error fetching departments:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDepartments();
+  }, []);
 
   const handleVoiceImageSubmit = async (data: any) => {
     try {
+      setError('');
+      // Find department ID from department code
+      const selectedDepartment = departments.find(d => d.code === data.department_code);
+      
+      const complaintData = {
+        title: data.title || 'Voice/Image Complaint',
+        description: data.description,
+        category: data.category,
+        department_id: selectedDepartment?.id,
+        priority: 'medium',
+        location: data.location || '',
+        phone: '',
+        email: ''
+      };
+
+      // Call API directly with proper authentication
+      const token = localStorage.getItem('token');
       const response = await fetch('/api/complaints', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': token ? `Bearer ${token}` : '',
         },
-        body: JSON.stringify({
-          name: data.name,
-          email: data.email,
-          department: data.department,
-          category: data.category,
-          description: data.description,
-          images: data.images,
-          location: data.location,
-        }),
+        body: JSON.stringify(complaintData),
       });
-
-      const result = await response.json();
-
-      if (response.ok) {
-        setSuccess(true);
-        setTrackingId(result.trackingId);
-      } else {
-        setError(result.error || 'Failed to submit complaint');
+      
+      if (!response.ok) {
+        throw new Error('Failed to submit complaint');
       }
-    } catch (err) {
-      setError('Network error. Please try again.');
+      
+      const result = await response.json();
+      setSuccess(true);
+      setTrackingId(result.complaint.tracking_id);
+      toast.success('Complaint submitted successfully!');
+    } catch (error: any) {
+      const errorMessage = error.message || 'Failed to submit complaint';
+      setError(errorMessage);
+      toast.error(errorMessage);
     }
   };
 
   const handleTextSubmit = async (formData: any) => {
     try {
+      setError('');
+      // Find department ID from department code
+      const selectedDepartment = departments.find(d => d.code === formData.department_code);
+      
+      const complaintData = {
+        title: formData.title,
+        description: formData.description,
+        category: formData.category,
+        department_id: selectedDepartment?.id,
+        priority: 'medium', // default priority
+        location: '', // can be added later
+        phone: '', // can be added later  
+        email: '' // will be handled by auth
+      };
+
+      // Call API directly with proper authentication
+      const token = localStorage.getItem('token');
       const response = await fetch('/api/complaints', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': token ? `Bearer ${token}` : '',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(complaintData),
       });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        setSuccess(true);
-        setTrackingId(data.trackingId);
-      } else {
-        setError(data.error || 'Failed to submit complaint');
+      
+      if (!response.ok) {
+        throw new Error('Failed to submit complaint');
       }
-    } catch (err) {
-      setError('Network error. Please try again.');
+      
+      const result = await response.json();
+      setSuccess(true);
+      setTrackingId(result.complaint.tracking_id);
+      toast.success('Complaint submitted successfully!');
+    } catch (error: any) {
+      const errorMessage = error.message || 'Failed to submit complaint';
+      setError(errorMessage);
+      toast.error(errorMessage);
     }
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-indigo-600"></div>
+      </div>
+    );
+  }
 
   if (success) {
     return (
@@ -127,19 +189,38 @@ export default function ComplaintPage() {
         </header>
 
         <main className="py-8">
-          <VoiceImageComplaintForm
-            onSubmit={handleVoiceImageSubmit}
-            onCancel={() => setComplaintType(null)}
-          />
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="bg-white rounded-lg shadow-lg p-8 text-center">
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">Coming Soon!</h2>
+              <p className="text-gray-600 mb-6">
+                The Voice & Image complaint feature is under development. Please use the text complaint option for now.
+              </p>
+              <button
+                onClick={() => setComplaintType('text')}
+                className="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg mr-4"
+              >
+                Use Text Complaint
+              </button>
+              <button
+                onClick={() => setComplaintType(null)}
+                className="bg-gray-600 hover:bg-gray-700 text-white font-medium py-2 px-4 rounded-lg"
+              >
+                Back to Options
+              </button>
+            </div>
+          </div>
         </main>
-        <AIChatbot />
       </div>
     );
   }
 
   if (complaintType === 'text') {
     return (
-      <TextComplaintForm onSubmit={handleTextSubmit} onCancel={() => setComplaintType(null)} />
+      <TextComplaintForm 
+        onSubmit={handleTextSubmit} 
+        onCancel={() => setComplaintType(null)} 
+        departments={departments}
+      />
     );
   }
 
@@ -305,17 +386,15 @@ export default function ComplaintPage() {
           </div>
         </div>
       </main>
-      <AIChatbot />
     </div>
   );
 }
 
 // Text Complaint Form Component
-function TextComplaintForm({ onSubmit, onCancel }: { onSubmit: (data: any) => void; onCancel: () => void }) {
+function TextComplaintForm({ onSubmit, onCancel, departments }: { onSubmit: (data: any) => void; onCancel: () => void; departments: Department[] }) {
   const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    department: '',
+    title: '',
+    department_code: '',
     category: '',
     description: '',
   });
@@ -368,63 +447,41 @@ function TextComplaintForm({ onSubmit, onCancel }: { onSubmit: (data: any) => vo
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid md:grid-cols-2 gap-6">
-              <div>
-                <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
-                  Full Name *
-                </label>
-                <input
-                  type="text"
-                  id="name"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleInputChange}
-                  className="form-input"
-                  placeholder="Enter your full name"
-                  required
-                />
-              </div>
-
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                  Email Address *
-                </label>
-                <input
-                  type="email"
-                  id="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleInputChange}
-                  className="form-input"
-                  placeholder="Enter your email address"
-                  required
-                />
-              </div>
+            <div>
+              <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">
+                Complaint Title *
+              </label>
+              <input
+                type="text"
+                id="title"
+                name="title"
+                value={formData.title}
+                onChange={handleInputChange}
+                className="form-input"
+                placeholder="Enter a brief title for your complaint"
+                required
+              />
             </div>
 
             <div className="grid md:grid-cols-2 gap-6">
               <div>
-                <label htmlFor="department" className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="department_code" className="block text-sm font-medium text-gray-700 mb-2">
                   Department *
                 </label>
                 <select
-                  id="department"
-                  name="department"
-                  value={formData.department}
+                  id="department_code"
+                  name="department_code"
+                  value={formData.department_code}
                   onChange={handleInputChange}
                   className="form-select"
                   required
                 >
                   <option value="">Select Department</option>
-                  <option value="Education">Education</option>
-                  <option value="Healthcare">Healthcare</option>
-                  <option value="Transportation">Transportation</option>
-                  <option value="Municipal Services">Municipal Services</option>
-                  <option value="Police">Police</option>
-                  <option value="Revenue">Revenue</option>
-                  <option value="Agriculture">Agriculture</option>
-                  <option value="Environment">Environment</option>
-                  <option value="Other">Other</option>
+                  {departments.map((dept) => (
+                    <option key={dept.id} value={dept.code}>
+                      {dept.name}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -491,5 +548,10 @@ function TextComplaintForm({ onSubmit, onCancel }: { onSubmit: (data: any) => vo
   );
 }
 
-
-
+export default function ComplaintPage() {
+  return (
+    <AuthGuard requireAuth={true}>
+      <ComplaintPageContent />
+    </AuthGuard>
+  );
+}

@@ -1,81 +1,130 @@
+// app/api/auth/login/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import connectDB from '@/lib/mongodb';
-import Admin from '@/models/Admin';
-import bcrypt from 'bcryptjs';
+import { query } from '@/lib/postgres';
 import jwt from 'jsonwebtoken';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+import bcrypt from 'bcryptjs';
 
 export async function POST(request: NextRequest) {
   try {
-    await connectDB();
-    
-    const body = await request.json();
-    const { username, password } = body;
+    const { email, password } = await request.json();
+    console.log('Login attempt for email:', email);
 
-    if (!username || !password) {
+    if (!email || !password) {
+      console.log('Missing email or password');
       return NextResponse.json(
-        { error: 'Username and password are required' },
+        { message: 'Email and password are required' },
         { status: 400 }
       );
     }
 
-    const admin = await Admin.findOne({ username });
+    // Check if user exists (include department info for admins)
+    const result = await query(
+      `SELECT u.id, u.name, u.email, u.password, u.role, u.department_id,
+              d.name as department_name, d.code as department_code
+       FROM users u
+       LEFT JOIN departments d ON u.department_id = d.id
+       WHERE u.email = $1`,
+      [email]
+    );
+    console.log('Found user:', result.rows.length > 0 ? 'Yes' : 'No');
 
-    if (!admin) {
+    if (result.rows.length === 0) {
+      console.log('No user found with email:', email);
       return NextResponse.json(
-        { error: 'Invalid credentials' },
+        { message: 'Invalid email or password' },
         { status: 401 }
       );
     }
 
-    const isPasswordValid = await bcrypt.compare(password, admin.password);
+    const user = result.rows[0];
 
-    if (!isPasswordValid) {
+    // Check password
+    const isMatch = await bcrypt.compare(password, user.password);
+    console.log('Password match:', isMatch);
+
+    if (!isMatch) {
+      console.log('Invalid password for email:', email);
       return NextResponse.json(
-        { error: 'Invalid credentials' },
+        { message: 'Invalid email or password' },
         { status: 401 }
       );
     }
 
-    // Generate JWT token
+    // Create token with essential user info and department info for admins
+    const tokenPayload = {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      ...(user.role === 'admin' && user.department_id ? {
+        department_id: user.department_id,
+        department_code: user.department_code
+      } : {})
+    };
+    
     const token = jwt.sign(
-      { 
-        id: admin._id, 
-        username: admin.username,
-        email: admin.email 
-      },
-      JWT_SECRET,
-      { expiresIn: '24h' }
+      tokenPayload,
+      process.env.JWT_SECRET || 'your-secret-key',
+      { expiresIn: '1d' }
     );
 
+    console.log('Login successful for user:', user.email);
+
     const response = NextResponse.json({
-      success: true,
       message: 'Login successful',
-      admin: {
-        id: admin._id,
-        username: admin.username,
-        email: admin.email,
+      token,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        ...(user.role === 'admin' && user.department_id ? {
+          department_id: user.department_id,
+          department_name: user.department_name,
+          department_code: user.department_code
+        } : {})
       },
     });
 
+    // Add CORS headers
+    response.headers.set('Access-Control-Allow-Origin', '*');
+    response.headers.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    response.headers.set('Access-Control-Allow-Credentials', 'true');
+
     // Set HTTP-only cookie
-    response.cookies.set('admin-token', token, {
+    response.cookies.set('token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
-      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      maxAge: 86400, // 1 day
+      path: '/',
     });
 
     return response;
-  } catch (error: any) {
-    console.error('Error during login:', error);
-    return NextResponse.json(
-      { error: 'Login failed' },
+  } catch (error) {
+    console.error('Login error:', error);
+    const errorResponse = NextResponse.json(
+      { message: 'Internal server error', error: error.message },
       { status: 500 }
     );
+    
+    // Add CORS headers to error response
+    errorResponse.headers.set('Access-Control-Allow-Origin', '*');
+    errorResponse.headers.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    errorResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    errorResponse.headers.set('Access-Control-Allow-Credentials', 'true');
+    
+    return errorResponse;
   }
 }
 
-
-
+// Handle OPTIONS request for CORS
+export async function OPTIONS(request: NextRequest) {
+  const response = new NextResponse(null, { status: 200 });
+  response.headers.set('Access-Control-Allow-Origin', '*');
+  response.headers.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  response.headers.set('Access-Control-Allow-Credentials', 'true');
+  return response;
+}
