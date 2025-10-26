@@ -49,7 +49,7 @@
    ```
    MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/cpgrams
    JWT_SECRET=your-super-secret-jwt-key-change-this
-   OPENAI_API_KEY=sk-your-openai-api-key
+   AI_SERVICE_URL=http://localhost:8000
    CLOUDINARY_CLOUD_NAME=your-cloud-name
    CLOUDINARY_API_KEY=your-cloudinary-api-key
    CLOUDINARY_API_SECRET=your-cloudinary-api-secret
@@ -85,7 +85,7 @@
    ```bash
    vercel env add MONGODB_URI
    vercel env add JWT_SECRET
-   vercel env add OPENAI_API_KEY
+   vercel env add AI_SERVICE_URL
    vercel env add CLOUDINARY_CLOUD_NAME
    vercel env add CLOUDINARY_API_KEY
    vercel env add CLOUDINARY_API_SECRET
@@ -106,9 +106,9 @@
 
 2. **Test Features**:
    - Test complaint filing
-   - Test voice recording (if API keys are set)
+   - Test voice recording (if configured)
    - Test image upload (if Cloudinary is configured)
-   - Test chatbot (if OpenAI API key is set)
+   - Test chatbot (if AI service is running)
 
 ## Environment Variables Explained
 
@@ -116,7 +116,7 @@
 |----------|-------------|----------|
 | `MONGODB_URI` | MongoDB connection string | ✅ Yes |
 | `JWT_SECRET` | Secret for JWT tokens | ✅ Yes |
-| `OPENAI_API_KEY` | OpenAI API key for AI features | ❌ No (fallback available) |
+| `AI_SERVICE_URL` | AI Service URL for chatbot | ❌ No (default: http://localhost:8000) |
 | `CLOUDINARY_*` | Cloudinary credentials for file uploads | ❌ No (fallback available) |
 | `SMTP_*` | Email server credentials | ❌ No (fallback available) |
 
@@ -133,7 +133,7 @@
 - Ensure API keys are valid
 
 ### Feature Not Working
-- **Voice/Image features**: Check OpenAI API key
+- **Chatbot**: Check AI service URL is correct
 - **File uploads**: Check Cloudinary credentials
 - **Email notifications**: Check SMTP settings
 

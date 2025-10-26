@@ -1,5 +1,3 @@
-import OpenAI from 'openai';
-
 export interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
   content: string;
@@ -16,13 +14,11 @@ export interface ChatSession {
 
 export class ChatbotService {
   private static instance: ChatbotService;
-  private openai: OpenAI;
   private sessions: Map<string, ChatSession> = new Map();
+  private aiServiceUrl: string;
 
   private constructor() {
-    this.openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY || 'your-openai-api-key',
-    });
+    this.aiServiceUrl = process.env.AI_SERVICE_URL || 'http://localhost:8000';
   }
 
   public static getInstance(): ChatbotService {
@@ -46,27 +42,26 @@ export class ChatbotService {
       timestamp: new Date(),
     });
 
-    // Generate system prompt based on context
-    const systemPrompt = this.generateSystemPrompt(userMessage);
-    
-    // Prepare messages for OpenAI
-    const messages = [
-      { role: 'system' as const, content: systemPrompt },
-      ...session.messages.slice(-10).map(msg => ({
-        role: msg.role,
-        content: msg.content,
-      })),
-    ];
-
     try {
-      const response = await this.openai.chat.completions.create({
-        model: 'gpt-3.5-turbo',
-        messages,
-        max_tokens: 500,
-        temperature: 0.7,
+      // Call the AI service chat endpoint
+      const response = await fetch(`${this.aiServiceUrl}/chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          user_input: userMessage,
+          session_id: sessionId,
+          user: userId ? { phone: userId } : undefined,
+        }),
       });
 
-      const assistantMessage = response.choices[0]?.message?.content || 'I apologize, but I am unable to process your request at the moment.';
+      if (!response.ok) {
+        throw new Error(`AI service error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const assistantMessage = data.message || 'I apologize, but I am unable to process your request at the moment.';
       
       // Add assistant response to session
       session.messages.push({
@@ -96,28 +91,6 @@ export class ChatbotService {
     
     this.sessions.set(sessionId, session);
     return session;
-  }
-
-  private generateSystemPrompt(userMessage: string): string {
-    const lowerMessage = userMessage.toLowerCase();
-    
-    if (lowerMessage.includes('complaint') || lowerMessage.includes('grievance')) {
-      return `You are a helpful AI assistant for a government grievance redressal portal. Help users understand how to file complaints, track their status, and provide general guidance. Be polite, professional, and informative. Keep responses concise and helpful.`;
-    }
-    
-    if (lowerMessage.includes('track') || lowerMessage.includes('status')) {
-      return `You are helping users track their complaint status. Explain how to use tracking IDs and what different statuses mean. Be helpful and guide them to the tracking page.`;
-    }
-    
-    if (lowerMessage.includes('department') || lowerMessage.includes('category')) {
-      return `You are helping users understand which department their complaint belongs to. Explain the different departments and categories available in the grievance portal.`;
-    }
-    
-    if (lowerMessage.includes('urgent') || lowerMessage.includes('emergency')) {
-      return `You are dealing with an urgent complaint. Provide immediate guidance and emphasize the importance of filing the complaint properly. Be reassuring but professional.`;
-    }
-    
-    return `You are a helpful AI assistant for a government grievance redressal portal. Provide friendly, professional assistance to users. Help them navigate the portal, understand processes, and get their issues resolved. Keep responses concise and actionable.`;
   }
 
   private getFallbackResponse(userMessage: string): string {
