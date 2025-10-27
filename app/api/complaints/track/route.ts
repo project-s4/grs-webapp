@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { query } from '@/src/lib/postgres';
+
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8001';
 
 export async function GET(request: NextRequest) {
   try {
@@ -8,37 +9,35 @@ export async function GET(request: NextRequest) {
 
     if (!trackingId) {
       return NextResponse.json(
-        { error: 'Tracking ID is required' },
+        { error: 'MISSING_TRACKING_ID', message: 'Tracking ID is required' },
         { status: 400 }
       );
     }
 
-    const result = await query(
-      'SELECT * FROM complaints WHERE tracking_id = $1',
-      [trackingId]
-    );
-
-    if (result.rows.length === 0) {
-      return NextResponse.json(
-        { error: 'Complaint not found with this tracking ID' },
-        { status: 404 }
-      );
-    }
-
-    const complaint = result.rows[0];
-
-    return NextResponse.json({ 
-      success: true,
-      complaint 
-    });
+    const response = await fetch(`${BACKEND_URL}/api/complaints/track/${trackingId}`);
+    const data = await response.json();
+    
+    const nextResponse = NextResponse.json(data, { status: response.status });
+    nextResponse.headers.set('Access-Control-Allow-Origin', '*');
+    nextResponse.headers.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    nextResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type');
+    nextResponse.headers.set('Access-Control-Allow-Credentials', 'true');
+    
+    return nextResponse;
   } catch (error: any) {
     console.error('Error tracking complaint:', error);
     return NextResponse.json(
-      { error: 'Failed to track complaint' },
+      { error: 'TRACKING_ERROR', message: 'Failed to track complaint' },
       { status: 500 }
     );
   }
 }
 
-
-
+export async function OPTIONS(request: NextRequest) {
+  const response = new NextResponse(null, { status: 200 });
+  response.headers.set('Access-Control-Allow-Origin', '*');
+  response.headers.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  response.headers.set('Access-Control-Allow-Headers', 'Content-Type');
+  response.headers.set('Access-Control-Allow-Credentials', 'true');
+  return response;
+}

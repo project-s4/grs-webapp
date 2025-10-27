@@ -5,6 +5,7 @@
 
 const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
+const { randomUUID } = require('crypto');
 
 const pool = new Pool({
   user: 'postgres',
@@ -69,12 +70,15 @@ async function createDepartmentUsers() {
         continue;
       }
 
+      // Generate UUID for user ID
+      const userId = randomUUID();
+
       // Insert user
       const result = await pool.query(
-        `INSERT INTO users (name, email, phone, password, role, department_id, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
+        `INSERT INTO users (id, name, email, phone, password_hash, role, department_id, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
          RETURNING id, name, email, role, department_id`,
-        [user.name, user.email, user.phone, hashedPassword, user.role, user.department_id]
+        [userId, user.name, user.email, user.phone, hashedPassword, user.role, user.department_id]
       );
 
       console.log(`✓ Created department user: ${result.rows[0].name} (${result.rows[0].email})`);

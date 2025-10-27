@@ -99,10 +99,14 @@ export default function AdminDashboardPage() {
   const fetchDepartments = async () => {
     try {
       const response = await fetch('/api/departments');
+      if (!response.ok) {
+        throw new Error('Failed to load departments');
+      }
       const data = await response.json();
       if (Array.isArray(data)) setDepartments(data);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error:', error);
+      toast.error('Failed to load departments. Please refresh the page.');
     }
   };
 
@@ -112,10 +116,14 @@ export default function AdminDashboardPage() {
       const response = await fetch('/api/users/department-users', {
         headers: { Authorization: `Bearer ${token}` }
       });
+      if (!response.ok) {
+        throw new Error('Failed to load department users');
+      }
       const data = await response.json();
       if (Array.isArray(data)) setDepartmentUsers(data);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error:', error);
+      toast.error('Failed to load department users. Please refresh the page.');
     }
   };
 
@@ -128,10 +136,14 @@ export default function AdminDashboardPage() {
           'Content-Type': 'application/json'
         }
       });
+      if (!response.ok) {
+        throw new Error('Failed to load complaints');
+      }
       const data = await response.json();
       if (response.ok) setComplaints(data.complaints || []);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error:', error);
+      toast.error('Failed to load complaints. Please refresh the page.');
     }
   };
 
@@ -204,12 +216,14 @@ export default function AdminDashboardPage() {
         setAssignedUser('');
         fetchComplaints(); // Refresh the list
       } else {
-        const error = await response.json();
-        toast.error(error.message || 'Failed to assign complaint');
+        const error = await response.json().catch(() => ({ message: 'Failed to assign complaint' }));
+        const errorMessage = error.message || error.error || 'Failed to assign complaint. Please try again.';
+        toast.error(errorMessage);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error assigning complaint:', error);
-      toast.error('Error assigning complaint');
+      const errorMessage = error.message || 'An unexpected error occurred while assigning the complaint. Please try again.';
+      toast.error(errorMessage);
     } finally {
       setAssigning(false);
     }

@@ -33,8 +33,8 @@ export default function LoginPage() {
     if (token) {
       try {
         const payload = JSON.parse(atob(token.split('.')[1]));
-        if (payload.role === 'citizen') {
-          window.location.href = redirect || '/user/dashboard';
+          if (payload.role === 'citizen') {
+          router.push(redirect || '/user/dashboard');
         }
       } catch (error) {
         localStorage.removeItem('token');
@@ -44,31 +44,70 @@ export default function LoginPage() {
 
   const onSubmit = async (data: LoginFormData) => {
     try {
+      
+      // Removed alert for cleaner flow
+      console.log('=== LOGIN START ===');
+      console.log('Login attempt for:', data.email);
+      
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: data.email, password: data.password })
+        body: JSON.stringify(data)
       });
 
       const result = await response.json();
+      
+      console.log('Login response:', { ok: response.ok, status: response.status, result });
+      
       if (!response.ok) {
-        throw new Error(result.error || 'Login failed');
+        // Show detailed error message from the API
+        const errorMessage = result.message || result.details || result.error || 'Login failed. Please check your credentials.';
+        console.error('Login error:', errorMessage);
+        toast.error(errorMessage, {
+          duration: 5000,
+          position: 'top-center',
+        });
+        return;
       }
 
-      localStorage.setItem('token', result.token);
-      toast.success('Login successful!');
+      console.log('Full result:', result);
+      console.log('Token:', result.access_token || result.token);
+      console.log('User:', result.user);
       
-      // Navigate based on role
-      if (result.user.role === 'admin') {
-        window.location.href = '/admin/dashboard';
-      } else if (result.user.role === 'department' || result.user.role === 'department_admin') {
-        window.location.href = '/department/dashboard';
+      // Store token
+      const token = result.access_token || result.token;
+      if (token) {
+        localStorage.setItem('token', token);
+        toast.success('Login successful!', { duration: 2000 });
+        
+      // Navigate based on role - check both result.user and result
+      const userRole = result.user?.role || result.role;
+      console.log('User role:', userRole);
+      console.log('About to redirect to /user/dashboard...');
+        
+      // Small delay to show success toast before redirect
+      setTimeout(() => {
+        console.log('Redirecting now to /user/dashboard');
+        router.push('/user/dashboard');
+      }, 1000);
       } else {
-        window.location.href = '/user/dashboard';
+        console.error('No token in response');
+        toast.error('Login failed: No token received');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Login failed:', error);
-      toast.error('Login failed. Please check your credentials.');
+      let errorMessage = 'An unexpected error occurred. Please try again later.';
+      
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        errorMessage = 'Network error. Please check your internet connection.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      toast.error(errorMessage, {
+        duration: 5000,
+        position: 'top-center',
+      });
     }
   };
 
@@ -86,7 +125,11 @@ export default function LoginPage() {
       type="citizen"
       footerLinks={footerLinks}
     >
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        <form onSubmit={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        handleSubmit(onSubmit)(e);
+      }} className="space-y-6">
             <div className="form-group">
               <label htmlFor="email" className="form-label">
                 Email Address
@@ -142,7 +185,7 @@ export default function LoginPage() {
                 </label>
               </div>
               <div className="text-sm">
-                <a href="#" className="font-medium text-primary-600 dark:text-primary-400 hover:text-primary-500 dark:hover:text-primary-300 transition-colors duration-200">
+                <a href="/forgot-password" className="font-medium text-primary-600 dark:text-primary-400 hover:text-primary-500 dark:hover:text-primary-300 transition-colors duration-200">
                   Forgot your password?
                 </a>
               </div>

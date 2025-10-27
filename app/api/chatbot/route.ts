@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ChatbotService } from '@/lib/chatbot-service';
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,12 +12,33 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const chatbotService = ChatbotService.getInstance();
-    const response = await chatbotService.processMessage(sessionId, message, userId);
+    // Get AI service URL from environment variable
+    const aiServiceUrl = process.env.AI_SERVICE_URL || 'http://localhost:8000';
+    console.log('Calling AI service at:', `${aiServiceUrl}/chat`);
+
+    // Call the AI service chat endpoint
+    const response = await fetch(`${aiServiceUrl}/chat`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        user_input: message,
+        session_id: sessionId,
+        user: userId ? { phone: userId } : undefined,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`AI service error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const assistantMessage = data.message || 'I apologize, but I am unable to process your request at the moment.';
 
     return NextResponse.json({
       success: true,
-      response,
+      response: assistantMessage,
       sessionId,
     });
   } catch (error: any) {
@@ -32,27 +52,15 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const sessionId = searchParams.get('sessionId');
-
-    if (!sessionId) {
-      return NextResponse.json(
-        { error: 'SessionId is required' },
-        { status: 400 }
-      );
-    }
-
-    const chatbotService = ChatbotService.getInstance();
-    const history = chatbotService.getSessionHistory(sessionId);
-
+    // Session history is managed by the AI service, not needed here
     return NextResponse.json({
       success: true,
-      history,
+      message: 'Chatbot API is running',
     });
   } catch (error: any) {
-    console.error('Chatbot history error:', error);
+    console.error('Chatbot error:', error);
     return NextResponse.json(
-      { error: 'Failed to get chat history' },
+      { error: 'Failed to process request' },
       { status: 500 }
     );
   }

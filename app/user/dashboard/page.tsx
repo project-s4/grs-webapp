@@ -123,10 +123,12 @@ export default function UserDashboard() {
         });
         setError('');
       } else {
-        setError(data.error || 'Failed to fetch complaints');
+        const errorMessage = data.message || data.error || 'Failed to fetch complaints. Please try again.';
+        setError(errorMessage);
       }
-    } catch (err) {
-      setError('Network error. Please try again.');
+    } catch (err: any) {
+      const errorMessage = err.message || 'Network error. Please check your connection and try again.';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }

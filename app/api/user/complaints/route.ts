@@ -24,10 +24,19 @@ export async function GET(request: NextRequest) {
     console.log('Fetching complaints for:', { email, status, category, search, page, limit });
 
     if (!email) {
-      return NextResponse.json(
-        { error: 'Email is required' },
-        { status: 400, headers }
+      const errorResponse = NextResponse.json(
+        { 
+          error: 'MISSING_EMAIL',
+          message: 'Email address is required to fetch your complaints.',
+          details: 'Please provide your email address to view your complaint history.'
+        },
+        { status: 400 }
       );
+      errorResponse.headers.set('Access-Control-Allow-Origin', '*');
+      errorResponse.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+      errorResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+      errorResponse.headers.set('Access-Control-Allow-Credentials', 'true');
+      return errorResponse;
     }
 
     // First try to get user_id from email if possible
@@ -144,15 +153,19 @@ export async function GET(request: NextRequest) {
     }, { headers });
   } catch (error: any) {
     console.error('Error fetching user complaints:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch complaints' },
-      { status: 500, headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-        'Access-Control-Allow-Credentials': 'true',
-      } }
+    const errorResponse = NextResponse.json(
+      { 
+        error: 'FETCH_ERROR',
+        message: 'Failed to fetch your complaints. Please try again later.',
+        details: error.message || 'An unexpected error occurred while retrieving your complaints.'
+      },
+      { status: 500 }
     );
+    errorResponse.headers.set('Access-Control-Allow-Origin', '*');
+    errorResponse.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    errorResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    errorResponse.headers.set('Access-Control-Allow-Credentials', 'true');
+    return errorResponse;
   }
 }
 

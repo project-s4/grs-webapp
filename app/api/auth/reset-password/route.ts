@@ -2,12 +2,16 @@ import { NextRequest, NextResponse } from 'next/server';
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8001';
 
-export async function GET(request: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
-    const response = await fetch(`${BACKEND_URL}/api/me`, {
+    const body = await request.json();
+    
+    const response = await fetch(`${BACKEND_URL}/api/reset-password`, {
+      method: 'POST',
       headers: {
-        'Authorization': request.headers.get('Authorization') || '',
+        'Content-Type': 'application/json',
       },
+      body: JSON.stringify(body),
     });
 
     const data = await response.json();
@@ -15,15 +19,15 @@ export async function GET(request: NextRequest) {
     // Add CORS headers
     const nextResponse = NextResponse.json(data, { status: response.status });
     nextResponse.headers.set('Access-Control-Allow-Origin', '*');
-    nextResponse.headers.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
-    nextResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    nextResponse.headers.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    nextResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type');
     nextResponse.headers.set('Access-Control-Allow-Credentials', 'true');
     
     return nextResponse;
   } catch (error: any) {
-    console.error('Error proxying /me:', error);
+    console.error('Reset password error:', error);
     const errorResponse = NextResponse.json(
-      { error: 'FETCH_ERROR', message: 'Failed to fetch user data' },
+      { error: 'RESET_PASSWORD_ERROR', message: 'Failed to reset password' },
       { status: 500 }
     );
     errorResponse.headers.set('Access-Control-Allow-Origin', '*');
@@ -34,8 +38,8 @@ export async function GET(request: NextRequest) {
 export async function OPTIONS(request: NextRequest) {
   const response = new NextResponse(null, { status: 200 });
   response.headers.set('Access-Control-Allow-Origin', '*');
-  response.headers.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  response.headers.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  response.headers.set('Access-Control-Allow-Headers', 'Content-Type');
   response.headers.set('Access-Control-Allow-Credentials', 'true');
   return response;
 }

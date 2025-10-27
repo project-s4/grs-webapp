@@ -1,5 +1,6 @@
 import axios from 'axios';
 
+// API client - proxies to Next.js API routes, which then proxy to backend
 const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || '/api',
   headers: {

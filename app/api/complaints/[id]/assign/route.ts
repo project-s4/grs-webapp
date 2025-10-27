@@ -18,10 +18,18 @@ export async function PATCH(
     // Get token from Authorization header
     const authHeader = request.headers.get('authorization');
     if (!authHeader?.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { error: 'Authorization token required' },
+      const errorResponse = NextResponse.json(
+        { 
+          error: 'UNAUTHORIZED',
+          message: 'Authorization token required.',
+          details: 'Please log in to assign complaints.'
+        },
         { status: 401 }
       );
+      errorResponse.headers.set('Access-Control-Allow-Origin', '*');
+      errorResponse.headers.set('Access-Control-Allow-Methods', 'PATCH, OPTIONS');
+      errorResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+      return errorResponse;
     }
 
     const token = authHeader.split(' ')[1];
@@ -31,16 +39,32 @@ export async function PATCH(
       
       // Only admins can assign complaints
       if (decoded.role !== 'admin') {
-        return NextResponse.json(
-          { error: 'Access denied. Admin role required.' },
+        const errorResponse = NextResponse.json(
+          { 
+            error: 'FORBIDDEN',
+            message: 'Access denied. Admin role required.',
+            details: 'Only administrators can assign complaints to department users.'
+          },
           { status: 403 }
         );
+        errorResponse.headers.set('Access-Control-Allow-Origin', '*');
+        errorResponse.headers.set('Access-Control-Allow-Methods', 'PATCH, OPTIONS');
+        errorResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+        return errorResponse;
       }
     } catch (jwtError) {
-      return NextResponse.json(
-        { error: 'Invalid token' },
+      const errorResponse = NextResponse.json(
+        { 
+          error: 'INVALID_TOKEN',
+          message: 'Invalid or expired authentication token.',
+          details: 'Please log in again to continue.'
+        },
         { status: 401 }
       );
+      errorResponse.headers.set('Access-Control-Allow-Origin', '*');
+      errorResponse.headers.set('Access-Control-Allow-Methods', 'PATCH, OPTIONS');
+      errorResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+      return errorResponse;
     }
 
     const { assigned_to } = await request.json();
@@ -54,10 +78,18 @@ export async function PATCH(
       );
       
       if (userCheck.rows.length === 0) {
-        return NextResponse.json(
-          { error: 'Invalid department user' },
+        const errorResponse = NextResponse.json(
+          { 
+            error: 'INVALID_USER',
+            message: 'Invalid department user selected.',
+            details: 'The selected user does not exist or is not a department user. Please select a valid department user.'
+          },
           { status: 400 }
         );
+        errorResponse.headers.set('Access-Control-Allow-Origin', '*');
+        errorResponse.headers.set('Access-Control-Allow-Methods', 'PATCH, OPTIONS');
+        errorResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+        return errorResponse;
       }
     }
 
@@ -89,22 +121,42 @@ export async function PATCH(
     const result = await pool.query(updateQuery, queryParams);
 
     if (result.rows.length === 0) {
-      return NextResponse.json(
-        { error: 'Complaint not found' },
+      const errorResponse = NextResponse.json(
+        { 
+          error: 'NOT_FOUND',
+          message: 'Complaint not found.',
+          details: 'The complaint you are trying to assign does not exist or may have been deleted.'
+        },
         { status: 404 }
       );
+      errorResponse.headers.set('Access-Control-Allow-Origin', '*');
+      errorResponse.headers.set('Access-Control-Allow-Methods', 'PATCH, OPTIONS');
+      errorResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+      return errorResponse;
     }
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       message: 'Complaint assigned successfully',
       complaint: result.rows[0]
     });
+    response.headers.set('Access-Control-Allow-Origin', '*');
+    response.headers.set('Access-Control-Allow-Methods', 'PATCH, OPTIONS');
+    response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    return response;
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error assigning complaint:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
+    const errorResponse = NextResponse.json(
+      { 
+        error: 'ASSIGNMENT_ERROR',
+        message: 'Failed to assign complaint. Please try again later.',
+        details: error.message || 'An unexpected error occurred while assigning the complaint.'
+      },
       { status: 500 }
     );
+    errorResponse.headers.set('Access-Control-Allow-Origin', '*');
+    errorResponse.headers.set('Access-Control-Allow-Methods', 'PATCH, OPTIONS');
+    errorResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    return errorResponse;
   }
 }

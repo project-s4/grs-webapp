@@ -35,7 +35,8 @@ function ComplaintPageContent() {
         const departmentData = await departmentService.getDepartments();
         setDepartments(departmentData);
       } catch (error: any) {
-        toast.error('Failed to load departments');
+        const errorMessage = error.message || 'Failed to load departments. Please refresh the page and try again.';
+        toast.error(errorMessage);
         console.error('Error fetching departments:', error);
       } finally {
         setLoading(false);
@@ -74,7 +75,9 @@ function ComplaintPageContent() {
       });
       
       if (!response.ok) {
-        throw new Error('Failed to submit complaint');
+        const errorData = await response.json().catch(() => ({ message: 'Unknown error occurred' }));
+        const errorMessage = errorData.message || errorData.error || 'Failed to submit complaint. Please try again.';
+        throw new Error(errorMessage);
       }
       
       const result = await response.json();
@@ -82,7 +85,7 @@ function ComplaintPageContent() {
       setTrackingId(result.complaint.tracking_id);
       toast.success('Complaint submitted successfully!');
     } catch (error: any) {
-      const errorMessage = error.message || 'Failed to submit complaint';
+      const errorMessage = error.message || 'An unexpected error occurred while submitting your complaint. Please try again later.';
       setError(errorMessage);
       toast.error(errorMessage);
     }
@@ -155,8 +158,9 @@ function ComplaintPageContent() {
       });
       
       if (!response.ok) {
-        const errorData = await response.text();
-        throw new Error(errorData || 'Failed to submit complaint');
+        const errorData = await response.json().catch(() => ({ message: 'Unknown error occurred' }));
+        const errorMessage = errorData.message || errorData.error || 'Failed to submit complaint. Please try again.';
+        throw new Error(errorMessage);
       }
       
       const result = await response.json();
@@ -164,7 +168,7 @@ function ComplaintPageContent() {
       setTrackingId(result.complaint.tracking_id);
       toast.success('Grievance submitted successfully!');
     } catch (error: any) {
-      const errorMessage = error.message || 'Failed to submit complaint';
+      const errorMessage = error.message || 'An unexpected error occurred while submitting your complaint. Please try again later.';
       setError(errorMessage);
       toast.error(errorMessage);
     } finally {

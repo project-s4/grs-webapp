@@ -56,7 +56,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(true);
 
     try {
-      const response = await fetch('/api/chat', {
+      const response = await fetch('/api/chatbot', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -69,7 +69,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
       const data = await response.json();
       
-      if (response.ok) {
+      if (data.success) {
         const assistantMessage: Message = {
           id: (Date.now() + 1).toString(),
           content: data.response,

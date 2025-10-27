@@ -27,8 +27,8 @@ async function addTestComplaints() {
       const hashedPassword = await bcrypt.hash('password123', 10);
       
       const newUserResult = await pool.query(
-        'INSERT INTO users (name, email, password, role, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, email, name',
-        ['Test Citizen', 'citizen@test.com', hashedPassword, 'citizen', new Date(), new Date()]
+        'INSERT INTO users (id, name, email, password_hash, role, created_at) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, email, name',
+        [randomUUID(), 'Test Citizen', 'citizen@test.com', hashedPassword, 'citizen', new Date()]
       );
       
       console.log('Created test user:', newUserResult.rows[0]);

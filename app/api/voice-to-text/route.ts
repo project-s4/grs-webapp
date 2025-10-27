@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { VoiceService } from '@/lib/voice-service';
+
+const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:8000';
 
 export async function POST(request: NextRequest) {
   try {
@@ -32,22 +33,23 @@ export async function POST(request: NextRequest) {
     // Convert audio to buffer
     const buffer = Buffer.from(await audioFile.arrayBuffer());
     
-    // Transcribe audio
-    const voiceService = VoiceService.getInstance();
-    const transcription = await voiceService.transcribeAudio(buffer);
+    // Create new FormData for AI service
+    const aiFormData = new FormData();
+    const blob = new Blob([buffer], { type: audioFile.type });
+    aiFormData.append('file', blob, audioFile.name);
     
-    // Analyze voice content
-    const analysis = await voiceService.analyzeVoiceContent(transcription.text);
-    
-    // Generate structured complaint
-    const complaint = await voiceService.generateComplaintFromVoice(transcription.text);
-
-    return NextResponse.json({
-      success: true,
-      transcription,
-      analysis,
-      complaint,
+    // Call AI service transcription endpoint
+    const response = await fetch(`${AI_SERVICE_URL}/audio/transcribe`, {
+      method: 'POST',
+      body: aiFormData,
     });
+
+    if (!response.ok) {
+      throw new Error(`AI service error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return NextResponse.json(data);
   } catch (error: any) {
     console.error('Voice-to-text error:', error);
     return NextResponse.json(

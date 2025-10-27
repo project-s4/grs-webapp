@@ -165,12 +165,14 @@ export default function DepartmentDashboardPage() {
         setUpdateData({ status: '', adminReply: '' });
         fetchAssignedComplaints();
       } else {
-        const error = await response.json();
-        toast.error(error.message || 'Failed to update complaint');
+        const error = await response.json().catch(() => ({ message: 'Failed to update complaint' }));
+        const errorMessage = error.message || error.error || 'Failed to update complaint. Please try again.';
+        toast.error(errorMessage);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating complaint:', error);
-      toast.error('Error updating complaint');
+      const errorMessage = error.message || 'An unexpected error occurred while updating the complaint. Please try again.';
+      toast.error(errorMessage);
     } finally {
       setUpdating(false);
     }

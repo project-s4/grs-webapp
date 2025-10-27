@@ -1,5 +1,6 @@
 const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
+const { randomUUID } = require('crypto');
 
 const pool = new Pool({
   user: 'postgres',
@@ -18,15 +19,15 @@ async function testCitizenFlow() {
     const hashedPassword = await bcrypt.hash('testpass123', 10);
     
     const userQuery = `
-      INSERT INTO users (name, email, phone, password, role, created_at) 
-      VALUES ($1, $2, $3, $4, $5, NOW())
+      INSERT INTO users (id, name, email, phone, password_hash, role, created_at) 
+      VALUES ($1, $2, $3, $4, $5, $6, NOW())
       ON CONFLICT (email) DO UPDATE SET 
-        password = EXCLUDED.password,
-        updated_at = NOW()
+        password_hash = EXCLUDED.password_hash
       RETURNING id, name, email, role
     `;
     
     const userResult = await pool.query(userQuery, [
+      randomUUID(),
       'Test Citizen User',
       'testcitizen@example.com',
       '+1-555-TEST',

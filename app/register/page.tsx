@@ -98,16 +98,35 @@ export default function RegisterPage() {
       });
 
       const result = await response.json();
+      
+      console.log('Registration response:', { ok: response.ok, status: response.status, result });
 
       if (response.ok) {
         toast.success('Account created successfully!');
         router.push('/login');
       } else {
-        toast.error(result.error || 'Registration failed. Please try again.');
+        // Show detailed error message from the API
+        const errorMessage = result.message || result.details || result.error || 'Registration failed. Please try again.';
+        console.error('Registration error:', errorMessage);
+        toast.error(errorMessage, {
+          duration: 5000, // Show for 5 seconds
+          position: 'top-center',
+        });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Registration failed:', error);
-      toast.error('Registration failed. Please try again.');
+      let errorMessage = 'An unexpected error occurred. Please try again later.';
+      
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        errorMessage = 'Network error. Please check your internet connection.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      toast.error(errorMessage, {
+        duration: 5000,
+        position: 'top-center',
+      });
     }
   };
 
