@@ -81,8 +81,8 @@ MONGODB_URI=mongodb://127.0.0.1:27017/cpgrams
 # Authentication
 JWT_SECRET=your-super-secret-jwt-key
 
-# OpenAI (for chatbot)
-OPENAI_API_KEY=your-openai-api-key
+# AI Service (for chatbot)
+AI_SERVICE_URL=http://localhost:8000
 
 # Cloudinary (for file uploads)
 CLOUDINARY_CLOUD_NAME=your-cloud-name
