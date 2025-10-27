@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { query } from '@/lib/postgres';
-import { generateTrackingId } from '@/lib/utils';
-import { NLPService } from '@/lib/nlp-service';
-import { EmailService } from '@/lib/email-service';
+import { query } from '@/src/lib/postgres';
+import { generateTrackingId } from '@/src/lib/utils';
+import { NLPService } from '@/src/lib/nlp-service';
+import { EmailService } from '@/src/lib/email-service';
 import jwt from 'jsonwebtoken';
 
 export async function POST(request: NextRequest) {
@@ -174,7 +174,11 @@ export async function GET(request: NextRequest) {
     if (tracking_id) {
       // Get specific complaint by tracking ID
       const result = await query(
-        'SELECT * FROM complaints WHERE tracking_id = $1',
+        `SELECT c.*, d.name as department_name, u.name as user_name 
+         FROM complaints c 
+         LEFT JOIN departments d ON c.department_id = d.id
+         LEFT JOIN users u ON c.user_id = u.id
+         WHERE c.tracking_id = $1`,
         [tracking_id]
       );
       complaints = result.rows;
@@ -182,7 +186,12 @@ export async function GET(request: NextRequest) {
     } else if (user_id) {
       // Get complaints for specific user
       const result = await query(
-        'SELECT * FROM complaints WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3',
+        `SELECT c.*, d.name as department_name 
+         FROM complaints c 
+         LEFT JOIN departments d ON c.department_id = d.id
+         WHERE c.user_id = $1 
+         ORDER BY c.created_at DESC 
+         LIMIT $2 OFFSET $3`,
         [parseInt(user_id), limit, offset]
       );
       complaints = result.rows;
@@ -195,7 +204,11 @@ export async function GET(request: NextRequest) {
       total = parseInt(countResult.rows[0].count);
     } else {
       // Get all complaints with filtering
-      let queryText = 'SELECT * FROM complaints WHERE 1=1';
+      let queryText = `SELECT c.*, d.name as department_name, u.name as user_name, u.email as user_email
+                       FROM complaints c 
+                       LEFT JOIN departments d ON c.department_id = d.id
+                       LEFT JOIN users u ON c.user_id = u.id
+                       WHERE 1=1`;
       const queryParams = [];
       let paramIndex = 1;
       
@@ -229,7 +242,7 @@ export async function GET(request: NextRequest) {
         paramIndex++;
       }
       
-      queryText += ' ORDER BY created_at DESC';
+      queryText += ' ORDER BY c.created_at DESC';
       queryText += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
       queryParams.push(limit, offset);
       

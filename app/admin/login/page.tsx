@@ -6,7 +6,7 @@ import * as z from 'zod';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect } from 'react';
 import toast from 'react-hot-toast';
-import LoginPageLayout from '@/components/LoginPageLayout';
+import LoginPageLayout from '@/src/components/LoginPageLayout';
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email address'),

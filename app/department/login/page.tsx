@@ -3,8 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'react-hot-toast';
-import { useAuth } from '@/contexts/auth-context';
-import LoginPageLayout from '@/components/LoginPageLayout';
+import { useAuth } from '@/src/contexts/auth-context';
+import LoginPageLayout from '@/src/components/LoginPageLayout';
 
 interface LoginFormData {
   email: string;

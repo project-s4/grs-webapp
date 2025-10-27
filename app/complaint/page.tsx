@@ -1,22 +1,33 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, CheckCircle, Mic, Camera, FileText } from 'lucide-react';
-// import VoiceImageComplaintForm from '@/components/VoiceImageComplaintForm';
-// import AIChatbot from '@/components/AIChatbot';
-import AuthGuard from '@/components/auth-guard';
-import { complaintService, ComplaintCreate } from '@/services/complaints';
-import { departmentService, Department } from '@/services/departments';
+// import VoiceImageComplaintForm from '@/src/components/VoiceImageComplaintForm';
+// import AIChatbot from '@/src/components/AIChatbot';
+import AuthGuard from '@/src/components/auth-guard';
+import { complaintService, ComplaintCreate } from '@/src/services/complaints';
+import { departmentService, Department } from '@/src/services/departments';
 import toast from 'react-hot-toast';
 
 function ComplaintPageContent() {
-  const [complaintType, setComplaintType] = useState<'text' | 'voice-image' | null>(null);
+  // Form state management
   const [success, setSuccess] = useState(false);
   const [trackingId, setTrackingId] = useState('');
   const [error, setError] = useState('');
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Form data state
+  const [formData, setFormData] = useState({
+    title: '',
+    department_code: '',
+    category: '',
+    description: '',
+    complaintType: '',
+    mediaType: ''
+  });
 
   useEffect(() => {
     const fetchDepartments = async () => {
@@ -77,19 +88,57 @@ function ComplaintPageContent() {
     }
   };
 
-  const handleTextSubmit = async (formData: any) => {
+  // Form input handler
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  // Radio button handler
+  const handleRadioChange = (name: string, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  // Form submission handler
+  const handleFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Basic validation
+    if (!formData.description.trim()) {
+      toast.error('Please describe your grievance');
+      return;
+    }
+    
+    if (!formData.department_code) {
+      toast.error('Please select a department');
+      return;
+    }
+    
+    if (!formData.category) {
+      toast.error('Please select a category');
+      return;
+    }
+
     try {
       setError('');
+      setIsSubmitting(true);
+      
       // Find department ID from department code
       const selectedDepartment = departments.find(d => d.code === formData.department_code);
       
       const complaintData = {
-        title: formData.title,
+        title: formData.title || `${formData.category} - ${formData.complaintType || 'General'} Complaint`,
         description: formData.description,
         category: formData.category,
         department_id: selectedDepartment?.id,
         priority: 'medium', // default priority
-        location: '', // can be added later
+        location: 'Current Area', // can be enhanced later
         phone: '', // can be added later  
         email: '' // will be handled by auth
       };
@@ -106,17 +155,20 @@ function ComplaintPageContent() {
       });
       
       if (!response.ok) {
-        throw new Error('Failed to submit complaint');
+        const errorData = await response.text();
+        throw new Error(errorData || 'Failed to submit complaint');
       }
       
       const result = await response.json();
       setSuccess(true);
       setTrackingId(result.complaint.tracking_id);
-      toast.success('Complaint submitted successfully!');
+      toast.success('Grievance submitted successfully!');
     } catch (error: any) {
       const errorMessage = error.message || 'Failed to submit complaint';
       setError(errorMessage);
       toast.error(errorMessage);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -130,267 +182,289 @@ function ComplaintPageContent() {
 
   if (success) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-green-50 to-green-100">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-          <div className="bg-white rounded-lg shadow-lg p-8 text-center">
-            <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-green-100 mb-6">
-              <CheckCircle className="h-8 w-8 text-green-600" />
-            </div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-4">
-              Complaint Submitted Successfully!
-            </h1>
-            <p className="text-lg text-gray-600 mb-6">
-              Your grievance has been registered and is under review. Please save your tracking ID for future reference.
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-8 text-center">
+          <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-green-100 dark:bg-green-900/30 mb-6">
+            <CheckCircle className="h-8 w-8 text-green-600 dark:text-green-400" />
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+            Complaint Submitted!
+          </h1>
+          <p className="text-gray-600 dark:text-gray-400 mb-6">
+            Your grievance has been registered. Save your tracking ID for future reference.
+          </p>
+          <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-6 mb-6">
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Tracking ID</p>
+            <p className="text-xl font-mono font-bold text-primary-600 dark:text-primary-400">
+              {trackingId}
             </p>
-            <div className="bg-gray-50 rounded-lg p-6 mb-8">
-              <p className="text-sm text-gray-600 mb-2">Your Tracking ID:</p>
-              <p className="text-2xl font-mono font-bold text-blue-600 bg-white p-3 rounded border">
-                {trackingId}
-              </p>
-            </div>
-            <div className="space-y-4">
-              <Link href={`/track/${trackingId}`} className="btn-primary inline-block">
-                Track Your Complaint
-              </Link>
-              <br />
-              <Link href="/complaint" className="btn-secondary inline-block">
-                Submit Another Complaint
-              </Link>
-              <br />
-              <Link href="/" className="text-blue-600 hover:text-blue-700 font-medium">
-                ← Back to Home
-              </Link>
-            </div>
+          </div>
+          <div className="flex flex-col gap-3">
+            <Link href={`/track/${trackingId}`} className="btn-primary">
+              <FileText className="w-4 h-4 mr-2 inline" />
+              Track Complaint
+            </Link>
+            <Link href="/complaint" className="btn-secondary">
+              Submit Another
+            </Link>
+            <Link href="/" className="text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 font-medium text-sm">
+              <ArrowLeft className="w-4 h-4 inline mr-1" />
+              Back to Home
+            </Link>
           </div>
         </div>
       </div>
     );
   }
 
-  if (complaintType === 'voice-image') {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50">
-        <header className="bg-white shadow-sm">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center py-6">
-              <div className="flex items-center">
-                <button
-                  onClick={() => setComplaintType(null)}
-                  className="text-blue-600 hover:text-blue-700 mr-4"
-                >
-                  <ArrowLeft className="h-6 w-6" />
-                </button>
-                <h1 className="text-2xl font-bold text-blue-600">
-                  Voice & Image Complaint
-                </h1>
+  // Modern Complaint Form UI
+  return (
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      {/* Header */}
+      <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between py-4">
+            <div className="flex items-center">
+              <Link href="/" className="text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 mr-4">
+                <ArrowLeft className="h-6 w-6" />
+              </Link>
+              <div>
+                <h1 className="text-xl font-semibold text-gray-900 dark:text-white">File a Complaint</h1>
+                <p className="text-sm text-gray-500 dark:text-gray-400">We're here to help resolve your issues</p>
               </div>
             </div>
-          </div>
-        </header>
-
-        <main className="py-8">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="bg-white rounded-lg shadow-lg p-8 text-center">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">Coming Soon!</h2>
-              <p className="text-gray-600 mb-6">
-                The Voice & Image complaint feature is under development. Please use the text complaint option for now.
-              </p>
-              <button
-                onClick={() => setComplaintType('text')}
-                className="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg mr-4"
-              >
-                Use Text Complaint
-              </button>
-              <button
-                onClick={() => setComplaintType(null)}
-                className="bg-gray-600 hover:bg-gray-700 text-white font-medium py-2 px-4 rounded-lg"
-              >
-                Back to Options
-              </button>
-            </div>
-          </div>
-        </main>
-      </div>
-    );
-  }
-
-  if (complaintType === 'text') {
-    return (
-      <TextComplaintForm 
-        onSubmit={handleTextSubmit} 
-        onCancel={() => setComplaintType(null)} 
-        departments={departments}
-      />
-    );
-  }
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <div className="flex items-center">
-              <Link href="/" className="text-blue-600 hover:text-blue-700">
-                <ArrowLeft className="h-6 w-6 mr-2" />
-              </Link>
-              <h1 className="text-2xl font-bold text-blue-600">
-                File a Complaint
-              </h1>
-            </div>
+            <Link href="/track" className="btn-secondary text-sm">
+              <FileText className="w-4 h-4 mr-2 inline" />
+              Track
+            </Link>
           </div>
         </div>
       </header>
 
-      {/* Complaint Type Selection */}
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        <div className="text-center mb-12">
-          <h2 className="text-4xl font-bold text-gray-900 mb-4">
-            Choose Your Complaint Method
-          </h2>
-          <p className="text-xl text-gray-600">
-            Select the most convenient way to file your grievance
-          </p>
-        </div>
-
+      {/* Main Content */}
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Error display */}
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 max-w-2xl mx-auto">
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg mb-6">
             {error}
           </div>
         )}
 
-        <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-          {/* Voice & Image Complaint */}
-          <div className="bg-white rounded-lg shadow-lg p-8 hover:shadow-xl transition-shadow">
-            <div className="text-center">
-              <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-blue-100 mb-6">
-                <Mic className="h-8 w-8 text-blue-600" />
-              </div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-4">
-                Voice & Image Complaint
-              </h3>
-              <p className="text-gray-600 mb-6">
-                Record your voice, take photos, and let AI analyze your issue automatically. Perfect for users who prefer speaking or have visual evidence.
-              </p>
-              <ul className="text-left text-sm text-gray-600 mb-8 space-y-2">
-                <li>• Voice-to-text conversion</li>
-                <li>• Photo upload with AI analysis</li>
-                <li>• Automatic department routing</li>
-                <li>• Location detection</li>
-                <li>• Priority assessment</li>
-              </ul>
-              <button
-                onClick={() => setComplaintType('voice-image')}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-6 rounded-lg transition-colors"
-              >
-                Start Voice & Image Complaint
-              </button>
+        {/* Main form */}
+        <form onSubmit={handleFormSubmit} className="space-y-6">
+          {/* Complaint Type Selection */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Complaint Type</h2>
+            <div className="grid grid-cols-2 gap-4">
+              <label className={`relative flex items-center p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                formData.complaintType === 'service'
+                  ? 'border-primary-600 bg-primary-50 dark:bg-primary-900/20'
+                  : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+              }`}>
+                <input
+                  type="radio"
+                  name="complaintType"
+                  value="service"
+                  checked={formData.complaintType === 'service'}
+                  onChange={(e) => handleRadioChange('complaintType', e.target.value)}
+                  className="sr-only"
+                />
+                <div className="flex items-center">
+                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center mr-3 ${
+                    formData.complaintType === 'service'
+                      ? 'border-primary-600 bg-primary-600'
+                      : 'border-gray-300 dark:border-gray-600'
+                  }`}>
+                    {formData.complaintType === 'service' && (
+                      <div className="w-2 h-2 bg-white rounded-full"></div>
+                    )}
+                  </div>
+                  <span className="text-sm font-medium text-gray-900 dark:text-white">Service</span>
+                </div>
+              </label>
+              <label className={`relative flex items-center p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                formData.complaintType === 'infrastructure'
+                  ? 'border-primary-600 bg-primary-50 dark:bg-primary-900/20'
+                  : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+              }`}>
+                <input
+                  type="radio"
+                  name="complaintType"
+                  value="infrastructure"
+                  checked={formData.complaintType === 'infrastructure'}
+                  onChange={(e) => handleRadioChange('complaintType', e.target.value)}
+                  className="sr-only"
+                />
+                <div className="flex items-center">
+                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center mr-3 ${
+                    formData.complaintType === 'infrastructure'
+                      ? 'border-primary-600 bg-primary-600'
+                      : 'border-gray-300 dark:border-gray-600'
+                  }`}>
+                    {formData.complaintType === 'infrastructure' && (
+                      <div className="w-2 h-2 bg-white rounded-full"></div>
+                    )}
+                  </div>
+                  <span className="text-sm font-medium text-gray-900 dark:text-white">Infrastructure</span>
+                </div>
+              </label>
             </div>
           </div>
 
-          {/* Text Complaint */}
-          <div className="bg-white rounded-lg shadow-lg p-8 hover:shadow-xl transition-shadow">
-            <div className="text-center">
-              <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-green-100 mb-6">
-                <FileText className="h-8 w-8 text-green-600" />
+          {/* Department and Category */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Details</h2>
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="department" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Department <span className="text-red-500">*</span>
+                </label>
+                <select
+                  id="department"
+                  name="department_code"
+                  value={formData.department_code}
+                  onChange={handleInputChange}
+                  className="form-select w-full"
+                  required
+                >
+                  <option value="">Select a department</option>
+                  {departments.map((dept) => (
+                    <option key={dept.id} value={dept.code}>
+                      {dept.name}
+                    </option>
+                  ))}
+                </select>
               </div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-4">
-                Text Complaint
-              </h3>
-              <p className="text-gray-600 mb-6">
-                Traditional form-based complaint filing. Fill out the form with your details and description.
-              </p>
-              <ul className="text-left text-sm text-gray-600 mb-8 space-y-2">
-                <li>• Simple form interface</li>
-                <li>• Manual department selection</li>
-                <li>• Text-based description</li>
-                <li>• Quick and straightforward</li>
-                <li>• Works on all devices</li>
-              </ul>
-              <button
-                onClick={() => setComplaintType('text')}
-                className="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-6 rounded-lg transition-colors"
-              >
-                Start Text Complaint
-              </button>
+              <div>
+                <label htmlFor="category" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Category <span className="text-red-500">*</span>
+                </label>
+                <select
+                  id="category"
+                  name="category"
+                  value={formData.category}
+                  onChange={handleInputChange}
+                  className="form-select w-full"
+                  required
+                >
+                  <option value="">Select a category</option>
+                  <option value="Infrastructure">Infrastructure</option>
+                  <option value="Service Delivery">Service Delivery</option>
+                  <option value="Corruption">Corruption</option>
+                  <option value="Delay in Services">Delay in Services</option>
+                  <option value="Quality Issues">Quality Issues</option>
+                  <option value="Billing Problems">Billing Problems</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
             </div>
           </div>
 
-          {/* Photo-Only Complaint */}
-          <div className="bg-white rounded-lg shadow-lg p-8 hover:shadow-xl transition-shadow">
-            <div className="text-center">
-              <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-purple-100 mb-6">
-                <Camera className="h-8 w-8 text-purple-600" />
-              </div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-4">
-                Photo-Only Complaint
-              </h3>
-              <p className="text-gray-600 mb-6">
-                Just take a photo of the issue and let AI analyze it. Perfect for visual problems like garbage, infrastructure issues, etc.
-              </p>
-              <ul className="text-left text-sm text-gray-600 mb-8 space-y-2">
-                <li>• Photo-based complaint</li>
-                <li>• AI image analysis</li>
-                <li>• Automatic issue detection</li>
-                <li>• Location tagging</li>
-                <li>• Instant department routing</li>
-              </ul>
+          {/* Media Upload Options */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Attach Evidence (Optional)</h2>
+            <div className="grid grid-cols-3 gap-4">
               <button
-                onClick={() => setComplaintType('voice-image')}
-                className="w-full bg-purple-600 hover:bg-purple-700 text-white font-medium py-3 px-6 rounded-lg transition-colors"
+                type="button"
+                onClick={() => handleRadioChange('mediaType', 'image')}
+                className={`flex flex-col items-center justify-center p-4 border-2 rounded-lg transition-all ${
+                  formData.mediaType === 'image'
+                    ? 'border-primary-600 bg-primary-50 dark:bg-primary-900/20'
+                    : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                }`}
               >
-                Start Photo Complaint
+                <Camera className={`w-8 h-8 mb-2 ${
+                  formData.mediaType === 'image'
+                    ? 'text-primary-600 dark:text-primary-400'
+                    : 'text-gray-400'
+                }`} />
+                <span className="text-sm font-medium text-gray-900 dark:text-white">Photo</span>
               </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Features Section */}
-        <div className="mt-16 bg-white rounded-lg shadow-lg p-8">
-          <h3 className="text-2xl font-bold text-gray-900 mb-6 text-center">
-            Advanced Features
-          </h3>
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div className="text-center">
-              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 mb-4">
-                <Mic className="h-6 w-6 text-blue-600" />
-              </div>
-              <h4 className="font-semibold text-gray-900 mb-2">Voice Input</h4>
-              <p className="text-sm text-gray-600">Speak your complaint and get automatic transcription</p>
-            </div>
-            <div className="text-center">
-              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
-                <Camera className="h-6 w-6 text-green-600" />
-              </div>
-              <h4 className="font-semibold text-gray-900 mb-2">Photo Analysis</h4>
-              <p className="text-sm text-gray-600">AI analyzes photos to detect issues and suggest departments</p>
-            </div>
-            <div className="text-center">
-              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-purple-100 mb-4">
-                <svg className="h-6 w-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-1.447-.894L15 4m0 13V4m-6 3l6-3" />
+              <button
+                type="button"
+                onClick={() => handleRadioChange('mediaType', 'video')}
+                className={`flex flex-col items-center justify-center p-4 border-2 rounded-lg transition-all ${
+                  formData.mediaType === 'video'
+                    ? 'border-primary-600 bg-primary-50 dark:bg-primary-900/20'
+                    : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                }`}
+              >
+                <svg className={`w-8 h-8 mb-2 ${
+                  formData.mediaType === 'video'
+                    ? 'text-primary-600 dark:text-primary-400'
+                    : 'text-gray-400'
+                }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                 </svg>
-              </div>
-              <h4 className="font-semibold text-gray-900 mb-2">Smart Routing</h4>
-              <p className="text-sm text-gray-600">Automatic department assignment based on content analysis</p>
+                <span className="text-sm font-medium text-gray-900 dark:text-white">Video</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleRadioChange('mediaType', 'audio')}
+                className={`flex flex-col items-center justify-center p-4 border-2 rounded-lg transition-all ${
+                  formData.mediaType === 'audio'
+                    ? 'border-primary-600 bg-primary-50 dark:bg-primary-900/20'
+                    : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                }`}
+              >
+                <Mic className={`w-8 h-8 mb-2 ${
+                  formData.mediaType === 'audio'
+                    ? 'text-primary-600 dark:text-primary-400'
+                    : 'text-gray-400'
+                }`} />
+                <span className="text-sm font-medium text-gray-900 dark:text-white">Audio</span>
+              </button>
             </div>
-            <div className="text-center">
-              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-yellow-100 mb-4">
-                <svg className="h-6 w-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-              </div>
-              <h4 className="font-semibold text-gray-900 mb-2">Priority Detection</h4>
-              <p className="text-sm text-gray-600">AI determines urgency and priority level automatically</p>
+            <p className="mt-4 text-xs text-gray-500 dark:text-gray-400">
+              You can attach a photo, video, or audio recording. Maximum file size: 5 MB
+            </p>
+          </div>
+
+          {/* Description */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Describe Your Complaint</h2>
+            <div>
+              <label htmlFor="description" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Description <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                id="description"
+                name="description"
+                value={formData.description}
+                onChange={handleInputChange}
+                rows={6}
+                className="form-input w-full"
+                placeholder="Please provide detailed information about your complaint..."
+                required
+              />
+              <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                Be as specific as possible to help us address your concern effectively.
+              </p>
             </div>
           </div>
-        </div>
+
+          {/* Submit Button */}
+          <div className="flex gap-4">
+            <Link href="/" className="btn-secondary flex-1">
+              Cancel
+            </Link>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="btn-primary flex-1"
+            >
+              {isSubmitting ? 'Submitting...' : 'Submit Complaint'}
+            </button>
+          </div>
+        </form>
       </main>
     </div>
   );
 }
 
 // Text Complaint Form Component
+// Rail Madad Form implementation - no longer needed as we've replaced it with the inline UI
+// This code is kept for reference only
 function TextComplaintForm({ onSubmit, onCancel, departments }: { onSubmit: (data: any) => void; onCancel: () => void; departments: Department[] }) {
   const [formData, setFormData] = useState({
     title: '',
@@ -416,135 +490,7 @@ function TextComplaintForm({ onSubmit, onCancel, departments }: { onSubmit: (dat
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-green-100">
-      <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <div className="flex items-center">
-              <button
-                onClick={onCancel}
-                className="text-green-600 hover:text-green-700 mr-4"
-              >
-                <ArrowLeft className="h-6 w-6" />
-              </button>
-              <h1 className="text-2xl font-bold text-green-600">
-                Text Complaint Form
-              </h1>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        <div className="bg-white rounded-lg shadow-lg p-8">
-          <div className="text-center mb-8">
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">
-              Submit Your Grievance
-            </h2>
-            <p className="text-gray-600">
-              Please fill out the form below with accurate information. All fields are required.
-            </p>
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">
-                Complaint Title *
-              </label>
-              <input
-                type="text"
-                id="title"
-                name="title"
-                value={formData.title}
-                onChange={handleInputChange}
-                className="form-input"
-                placeholder="Enter a brief title for your complaint"
-                required
-              />
-            </div>
-
-            <div className="grid md:grid-cols-2 gap-6">
-              <div>
-                <label htmlFor="department_code" className="block text-sm font-medium text-gray-700 mb-2">
-                  Department *
-                </label>
-                <select
-                  id="department_code"
-                  name="department_code"
-                  value={formData.department_code}
-                  onChange={handleInputChange}
-                  className="form-select"
-                  required
-                >
-                  <option value="">Select Department</option>
-                  {departments.map((dept) => (
-                    <option key={dept.id} value={dept.code}>
-                      {dept.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-2">
-                  Category *
-                </label>
-                <select
-                  id="category"
-                  name="category"
-                  value={formData.category}
-                  onChange={handleInputChange}
-                  className="form-select"
-                  required
-                >
-                  <option value="">Select Category</option>
-                  <option value="Infrastructure">Infrastructure</option>
-                  <option value="Service Delivery">Service Delivery</option>
-                  <option value="Corruption">Corruption</option>
-                  <option value="Delay in Services">Delay in Services</option>
-                  <option value="Quality Issues">Quality Issues</option>
-                  <option value="Billing Problems">Billing Problems</option>
-                  <option value="Other">Other</option>
-                </select>
-              </div>
-            </div>
-
-            <div>
-              <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
-                Description *
-              </label>
-              <textarea
-                id="description"
-                name="description"
-                value={formData.description}
-                onChange={handleInputChange}
-                rows={6}
-                className="form-input"
-                placeholder="Please describe your grievance in detail..."
-                required
-              />
-            </div>
-
-            <div className="flex items-center justify-between pt-6">
-              <button
-                type="button"
-                onClick={onCancel}
-                className="text-green-600 hover:text-green-700 font-medium"
-              >
-                ← Back to Options
-              </button>
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isSubmitting ? 'Submitting...' : 'Submit Complaint'}
-              </button>
-            </div>
-          </form>
-        </div>
-      </main>
-    </div>
+    <div></div> // Empty component as we're no longer using this
   );
 }
 

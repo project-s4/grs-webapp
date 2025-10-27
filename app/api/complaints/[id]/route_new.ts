@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { query } from '@/lib/postgres';
+import { query } from '@/src/lib/postgres';
 
 // GET - Fetch single complaint
 export async function GET(

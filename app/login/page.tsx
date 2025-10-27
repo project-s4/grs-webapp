@@ -6,7 +6,7 @@ import * as z from 'zod';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect } from 'react';
 import toast from 'react-hot-toast';
-import LoginPageLayout from '@/components/LoginPageLayout';
+import LoginPageLayout from '@/src/components/LoginPageLayout';
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -83,11 +83,12 @@ export default function LoginPage() {
     <LoginPageLayout 
       title="Citizen Login" 
       subtitle="Sign in to file complaints and track your submissions"
+      type="citizen"
       footerLinks={footerLinks}
     >
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+            <div className="form-group">
+              <label htmlFor="email" className="form-label">
                 Email Address
               </label>
               <input
@@ -100,12 +101,15 @@ export default function LoginPage() {
                 {...register('email')}
               />
               {errors.email && (
-                <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
+                <p className="form-error">
+                  <span className="mr-1">⚠</span>
+                  {errors.email.message}
+                </p>
               )}
             </div>
 
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+            <div className="form-group">
+              <label htmlFor="password" className="form-label">
                 Password
               </label>
               <input
@@ -118,7 +122,8 @@ export default function LoginPage() {
                 {...register('password')}
               />
               {errors.password && (
-                <p className="mt-1 text-sm text-red-600">
+                <p className="form-error">
+                  <span className="mr-1">⚠</span>
                   {errors.password.message}
                 </p>
               )}
@@ -130,14 +135,14 @@ export default function LoginPage() {
                   id="remember-me"
                   name="remember-me"
                   type="checkbox"
-                  className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                  className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800"
                 />
-                <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-900">
+                <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-900 dark:text-gray-100">
                   Remember me
                 </label>
               </div>
               <div className="text-sm">
-                <a href="#" className="font-medium text-primary-600 hover:text-primary-500">
+                <a href="#" className="font-medium text-primary-600 dark:text-primary-400 hover:text-primary-500 dark:hover:text-primary-300 transition-colors duration-200">
                   Forgot your password?
                 </a>
               </div>
@@ -147,9 +152,16 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed"
+                className="btn-primary btn-lg w-full"
               >
-                {isSubmitting ? 'Signing in...' : 'Sign in'}
+                {isSubmitting ? (
+                  <div className="flex items-center justify-center">
+                    <div className="loading-spinner w-5 h-5 mr-2"></div>
+                    Signing in...
+                  </div>
+                ) : (
+                  'Sign in'
+                )}
               </button>
             </div>
         </form>

@@ -3,11 +3,11 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, SubmitHandler } from 'react-hook-form';
 import * as z from 'zod';
-import { useAuth } from '@/contexts/auth-context';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { departmentService, Department } from '@/services/departments';
+import { departmentService, Department } from '@/src/services/departments';
 import toast from 'react-hot-toast';
+import LoginPageLayout from '@/src/components/LoginPageLayout';
 
 const registerSchema = z
   .object({
@@ -36,7 +36,6 @@ const registerSchema = z
 type RegisterFormData = z.infer<typeof registerSchema>;
 
 export default function RegisterPage() {
-  const { register: registerUser, isAuthenticated } = useAuth();
   const router = useRouter();
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loadingDepartments, setLoadingDepartments] = useState(false);
@@ -60,12 +59,6 @@ export default function RegisterPage() {
   });
 
   const selectedRole = watch('role');
-
-  useEffect(() => {
-    if (isAuthenticated()) {
-      router.push('/dashboard');
-    }
-  }, [isAuthenticated, router]);
 
   useEffect(() => {
     const fetchDepartments = async () => {
@@ -92,194 +85,217 @@ export default function RegisterPage() {
         phone: data.phone,
         password: data.password,
         role: data.role || 'citizen',
-        ...(data.department_id && { department_id: data.department_id }),
+        ...(data.department_id && { department_id: parseInt(data.department_id) }),
       };
       
-      await registerUser(registerData);
-      toast.success('Account created successfully!');
-      router.push('/login');
+      // Call the registration API directly
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(registerData),
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        toast.success('Account created successfully!');
+        router.push('/login');
+      } else {
+        toast.error(result.error || 'Registration failed. Please try again.');
+      }
     } catch (error) {
       console.error('Registration failed:', error);
       toast.error('Registration failed. Please try again.');
     }
   };
 
+  const footerLinks = [
+    { label: 'Already have an account?', href: '/login' },
+  ];
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Create a new account
-          </h2>
+    <LoginPageLayout
+      title="Create Account"
+      subtitle="Register to file complaints and track your submissions"
+      type="citizen"
+      footerLinks={footerLinks}
+    >
+      <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}>
+        <div className="form-group">
+          <label htmlFor="name" className="form-label">
+            Full Name
+          </label>
+          <input
+            id="name"
+            type="text"
+            autoComplete="name"
+            required
+            className="form-input"
+            placeholder="Enter your full name"
+            {...register('name')}
+          />
+          {errors.name && (
+            <p className="form-error">
+              <span className="mr-1">⚠</span>
+              {errors.name.message}
+            </p>
+          )}
         </div>
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit(onSubmit)}>
-          <div className="rounded-md shadow-sm -space-y-px">
-            <div>
-              <label htmlFor="name" className="sr-only">
-                Full Name
-              </label>
-              <input
-                id="name"
-                type="text"
-                autoComplete="name"
-                required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Full Name"
-                {...register('name')}
-              />
-              {errors.name && (
-                <p className="mt-1 text-sm text-red-600">{errors.name.message}</p>
-              )}
-            </div>
 
-            <div>
-              <label htmlFor="email" className="sr-only">
-                Email address
-              </label>
-              <input
-                id="email"
-                type="email"
-                autoComplete="email"
-                required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Email address"
-                {...register('email')}
-              />
-              {errors.email && (
-                <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
-              )}
-            </div>
+        <div className="form-group">
+          <label htmlFor="email" className="form-label">
+            Email Address
+          </label>
+          <input
+            id="email"
+            type="email"
+            autoComplete="email"
+            required
+            className="form-input"
+            placeholder="Enter your email address"
+            {...register('email')}
+          />
+          {errors.email && (
+            <p className="form-error">
+              <span className="mr-1">⚠</span>
+              {errors.email.message}
+            </p>
+          )}
+        </div>
 
-            <div>
-              <label htmlFor="phone" className="sr-only">
-                Phone Number
-              </label>
-              <input
-                id="phone"
-                type="tel"
-                autoComplete="tel"
-                required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Phone Number"
-                {...register('phone')}
-              />
-              {errors.phone && (
-                <p className="mt-1 text-sm text-red-600">{errors.phone.message}</p>
-              )}
-            </div>
+        <div className="form-group">
+          <label htmlFor="phone" className="form-label">
+            Phone Number
+          </label>
+          <input
+            id="phone"
+            type="tel"
+            autoComplete="tel"
+            required
+            className="form-input"
+            placeholder="Enter your phone number"
+            {...register('phone')}
+          />
+          {errors.phone && (
+            <p className="form-error">
+              <span className="mr-1">⚠</span>
+              {errors.phone.message}
+            </p>
+          )}
+        </div>
 
-            <div>
-              <label htmlFor="password" className="sr-only">
-                Password
-              </label>
-              <input
-                id="password"
-                type="password"
-                autoComplete="new-password"
-                required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Password"
-                {...register('password')}
-              />
-              {errors.password && (
-                <p className="mt-1 text-sm text-red-600">
-                  {errors.password.message}
-                </p>
-              )}
-            </div>
+        <div className="form-group">
+          <label htmlFor="password" className="form-label">
+            Password
+          </label>
+          <input
+            id="password"
+            type="password"
+            autoComplete="new-password"
+            required
+            className="form-input"
+            placeholder="Enter your password"
+            {...register('password')}
+          />
+          {errors.password && (
+            <p className="form-error">
+              <span className="mr-1">⚠</span>
+              {errors.password.message}
+            </p>
+          )}
+        </div>
 
-            <div>
-              <label htmlFor="confirmPassword" className="sr-only">
-                Confirm Password
-              </label>
-              <input
-                id="confirmPassword"
-                type="password"
-                autoComplete="new-password"
-                required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Confirm Password"
-                {...register('confirmPassword')}
-              />
-              {errors.confirmPassword && (
-                <p className="mt-1 text-sm text-red-600">
-                  {errors.confirmPassword.message}
-                </p>
-              )}
-            </div>
+        <div className="form-group">
+          <label htmlFor="confirmPassword" className="form-label">
+            Confirm Password
+          </label>
+          <input
+            id="confirmPassword"
+            type="password"
+            autoComplete="new-password"
+            required
+            className="form-input"
+            placeholder="Confirm your password"
+            {...register('confirmPassword')}
+          />
+          {errors.confirmPassword && (
+            <p className="form-error">
+              <span className="mr-1">⚠</span>
+              {errors.confirmPassword.message}
+            </p>
+          )}
+        </div>
 
-            <div>
-              <label htmlFor="role" className="sr-only">
-                Role
-              </label>
-              <select
-                id="role"
-                className={`appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm ${
-                  selectedRole !== 'department' && selectedRole !== 'admin' ? 'rounded-b-md' : ''
-                }`}
-                {...register('role')}
-              >
-                <option value="citizen">Citizen</option>
-                <option value="admin">Admin</option>
-                <option value="department">Department User</option>
-              </select>
-              {errors.role && (
-                <p className="mt-1 text-sm text-red-600">{errors.role.message}</p>
-              )}
-            </div>
+        <div className="form-group">
+          <label htmlFor="role" className="form-label">
+            Account Type
+          </label>
+          <select
+            id="role"
+            className="form-input"
+            {...register('role')}
+          >
+            <option value="citizen">Citizen</option>
+            <option value="admin">Admin</option>
+            <option value="department">Department User</option>
+          </select>
+          {errors.role && (
+            <p className="form-error">
+              <span className="mr-1">⚠</span>
+              {errors.role.message}
+            </p>
+          )}
+        </div>
 
-            {(selectedRole === 'department' || selectedRole === 'admin') && (
-              <div>
-                <label htmlFor="department_id" className="sr-only">
-                  Department
-                </label>
-                <select
-                  id="department_id"
-                  className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                  {...register('department_id')}
-                  disabled={loadingDepartments}
-                >
-                  <option value="">Select a department...</option>
-                  {departments.map((dept) => (
-                    <option key={dept.id} value={dept.id}>
-                      {dept.name}
-                    </option>
-                  ))}
-                </select>
-                {errors.department_id && (
-                  <p className="mt-1 text-sm text-red-600">
-                    {errors.department_id.message}
-                  </p>
-                )}
-                {loadingDepartments && (
-                  <p className="mt-1 text-sm text-gray-500">Loading departments...</p>
-                )}
-              </div>
+        {(selectedRole === 'department' || selectedRole === 'admin') && (
+          <div className="form-group">
+            <label htmlFor="department_id" className="form-label">
+              Department
+            </label>
+            <select
+              id="department_id"
+              className="form-input"
+              {...register('department_id')}
+              disabled={loadingDepartments}
+            >
+              <option value="">Select a department...</option>
+              {departments.map((dept) => (
+                <option key={dept.id} value={dept.id}>
+                  {dept.name}
+                </option>
+              ))}
+            </select>
+            {errors.department_id && (
+              <p className="form-error">
+                <span className="mr-1">⚠</span>
+                {errors.department_id.message}
+              </p>
+            )}
+            {loadingDepartments && (
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Loading departments...</p>
             )}
           </div>
+        )}
 
-          <div>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
-            >
-              {isSubmitting ? 'Creating account...' : 'Create Account'}
-            </button>
-          </div>
-        </form>
-        <div className="text-center">
-          <p className="text-sm text-gray-600">
-            Already have an account?{' '}
-            <a
-              href="/login"
-              className="font-medium text-indigo-600 hover:text-indigo-500"
-            >
-              Sign in
-            </a>
-          </p>
+        <div>
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="btn-primary btn-lg w-full"
+          >
+            {isSubmitting ? (
+              <div className="flex items-center justify-center">
+                <div className="loading-spinner w-5 h-5 mr-2"></div>
+                Creating account...
+              </div>
+            ) : (
+              'Create Account'
+            )}
+          </button>
         </div>
-      </div>
-    </div>
+      </form>
+    </LoginPageLayout>
   );
 }

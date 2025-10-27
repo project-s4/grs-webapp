@@ -66,8 +66,8 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+      <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500 dark:border-indigo-400"></div>
       </div>
     );
   }
@@ -99,17 +99,17 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <nav className="bg-white shadow-sm">
+    <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
+      <nav className="bg-white dark:bg-gray-800 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex">
               <div className="flex-shrink-0 flex items-center">
-                <h1 className="text-xl font-bold text-indigo-600">Grievance Portal</h1>
+                <h1 className="text-xl font-bold text-indigo-600 dark:text-indigo-400">Grievance Portal</h1>
               </div>
             </div>
             <div className="flex items-center">
-              <span className="text-gray-700 mr-4">
+              <span className="text-gray-700 dark:text-gray-300 mr-4">
                 Welcome, {user?.name || 'User'}
               </span>
               <button
@@ -127,7 +127,7 @@ export default function DashboardPage() {
         <header>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between items-center">
-              <h1 className="text-3xl font-bold text-gray-900">My Grievances</h1>
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-white">My Grievances</h1>
               <Link
                 href="/grievances/new"
                 className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
@@ -159,8 +159,8 @@ export default function DashboardPage() {
                     d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
                   />
                 </svg>
-                <h3 className="mt-2 text-sm font-medium text-gray-900">No grievances</h3>
-                <p className="mt-1 text-sm text-gray-500">
+                <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">No grievances</h3>
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
                   Get started by creating a new grievance.
                 </p>
                 <div className="mt-6">
@@ -186,17 +186,17 @@ export default function DashboardPage() {
                 </div>
               </div>
             ) : (
-              <div className="bg-white shadow overflow-hidden sm:rounded-md">
-                <ul className="divide-y divide-gray-200">
+              <div className="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-md">
+                <ul className="divide-y divide-gray-200 dark:divide-gray-700">
                   {grievances.map((grievance) => (
                     <li key={grievance.id}>
                       <Link
                         href={`/grievances/${grievance.id}`}
-                        className="block hover:bg-gray-50"
+                        className="block hover:bg-gray-50 dark:hover:bg-gray-700"
                       >
                         <div className="px-4 py-4 sm:px-6">
                           <div className="flex items-center justify-between">
-                            <p className="text-sm font-medium text-indigo-600 truncate">
+                            <p className="text-sm font-medium text-indigo-600 dark:text-indigo-400 truncate">
                               {grievance.title}
                             </p>
                             <div className="ml-2 flex-shrink-0 flex">
@@ -205,13 +205,13 @@ export default function DashboardPage() {
                           </div>
                           <div className="mt-2 sm:flex sm:justify-between">
                             <div className="sm:flex">
-                              <p className="flex items-center text-sm text-gray-500">
+                              <p className="flex items-center text-sm text-gray-500 dark:text-gray-400">
                                 {grievance.description.length > 100
                                   ? `${grievance.description.substring(0, 100)}...`
                                   : grievance.description}
                               </p>
                             </div>
-                            <div className="mt-2 flex items-center text-sm text-gray-500 sm:mt-0">
+                            <div className="mt-2 flex items-center text-sm text-gray-500 dark:text-gray-400 sm:mt-0">
                               <p>
                                 Created on{' '}
                                 <time dateTime={grievance.createdAt}>

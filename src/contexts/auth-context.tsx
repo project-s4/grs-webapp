@@ -2,7 +2,7 @@
 
 import { createContext, useContext, ReactNode, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { authService } from '@/services/auth';
+import { authService } from '@/src/services/auth';
 
 type User = {
   id: string;

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { query } from '@/lib/postgres';
-import { EmailService } from '@/lib/email-service';
+import { query } from '@/src/lib/postgres';
+import { EmailService } from '@/src/lib/email-service';
 
 // GET - Fetch single complaint
 export async function GET(

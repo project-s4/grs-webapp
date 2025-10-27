@@ -1,6 +1,6 @@
 // app/api/auth/login/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { query } from '@/lib/postgres';
+import { query } from '@/src/lib/postgres';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 
