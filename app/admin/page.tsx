@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 
 export default function AdminLoginPage() {
   const [credentials, setCredentials] = useState({
-    username: '',
+    email: '',
     password: '',
   });
   const [isLoading, setIsLoading] = useState(false);
@@ -38,8 +38,14 @@ export default function AdminLoginPage() {
       const data = await response.json();
 
       if (response.ok) {
-        // Redirect to admin dashboard
-        router.push('/admin/dashboard');
+        // Check if user is actually an admin
+        if (data.user && data.user.role === 'admin') {
+          localStorage.setItem('token', data.access_token || data.token);
+          // Redirect to admin dashboard
+          router.push('/admin/dashboard');
+        } else {
+          setError('Access denied. Admin credentials required.');
+        }
       } else {
         setError(data.error || 'Login failed');
       }
@@ -76,18 +82,18 @@ export default function AdminLoginPage() {
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-2">
-                Username
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                Email
               </label>
               <input
-                id="username"
-                name="username"
-                type="text"
+                id="email"
+                name="email"
+                type="email"
                 required
-                value={credentials.username}
+                value={credentials.email}
                 onChange={handleInputChange}
                 className="form-input"
-                placeholder="Enter your username"
+                placeholder="Enter your email"
               />
             </div>
 
@@ -127,7 +133,7 @@ export default function AdminLoginPage() {
 
         <div className="text-center">
           <p className="text-sm text-gray-600">
-            Demo Credentials: admin / admin123
+            Demo Credentials: admin@example.com / admin123
           </p>
         </div>
       </div>

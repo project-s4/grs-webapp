@@ -33,11 +33,24 @@ function ComplaintPageContent() {
     const fetchDepartments = async () => {
       try {
         const departmentData = await departmentService.getDepartments();
-        setDepartments(departmentData);
+        console.log('Fetched departments:', departmentData);
+        console.log('Number of departments:', Array.isArray(departmentData) ? departmentData.length : 'not an array');
+        
+        if (Array.isArray(departmentData) && departmentData.length > 0) {
+          setDepartments(departmentData);
+        } else {
+          console.warn('No departments returned or not an array:', departmentData);
+          toast.error('No departments available');
+        }
       } catch (error: any) {
         const errorMessage = error.message || 'Failed to load departments. Please refresh the page and try again.';
-        toast.error(errorMessage);
         console.error('Error fetching departments:', error);
+        console.error('Error details:', {
+          message: error?.message,
+          status: error?.status,
+          data: error?.data
+        });
+        toast.error(errorMessage);
       } finally {
         setLoading(false);
       }
@@ -49,18 +62,22 @@ function ComplaintPageContent() {
   const handleVoiceImageSubmit = async (data: any) => {
     try {
       setError('');
-      // Find department ID from department code
-      const selectedDepartment = departments.find(d => d.code === data.department_code);
       
+      // Create complaint data matching the backend schema
       const complaintData = {
         title: data.title || 'Voice/Image Complaint',
         description: data.description,
+        department_code: data.department_code, // Backend expects department_code
         category: data.category,
-        department_id: selectedDepartment?.id,
-        priority: 'medium',
-        location: data.location || '',
-        phone: '',
-        email: ''
+        transcript: null,
+        language: 'en',
+        translated_text: null,
+        subcategory: null,
+        source: 'web',
+        complaint_metadata: {
+          location: data.location || '',
+          hasMedia: true
+        }
       };
 
       // Call API directly with proper authentication
@@ -82,7 +99,7 @@ function ComplaintPageContent() {
       
       const result = await response.json();
       setSuccess(true);
-      setTrackingId(result.complaint.tracking_id);
+      setTrackingId(result.reference_no); // Backend returns reference_no
       toast.success('Complaint submitted successfully!');
     } catch (error: any) {
       const errorMessage = error.message || 'An unexpected error occurred while submitting your complaint. Please try again later.';
@@ -132,19 +149,27 @@ function ComplaintPageContent() {
       setError('');
       setIsSubmitting(true);
       
-      // Find department ID from department code
-      const selectedDepartment = departments.find(d => d.code === formData.department_code);
+      // Generate title if not provided
+      const title = formData.title || `${formData.category} - ${formData.complaintType || 'General'} Complaint`;
       
+      // Create complaint data matching the backend schema
       const complaintData = {
-        title: formData.title || `${formData.category} - ${formData.complaintType || 'General'} Complaint`,
+        title: title,
         description: formData.description,
+        department_code: formData.department_code, // Backend expects department_code, not department_id
         category: formData.category,
-        department_id: selectedDepartment?.id,
-        priority: 'medium', // default priority
-        location: 'Current Area', // can be enhanced later
-        phone: '', // can be added later  
-        email: '' // will be handled by auth
+        transcript: null,
+        language: 'en',
+        translated_text: null,
+        subcategory: null,
+        source: 'web',
+        complaint_metadata: {
+          complaintType: formData.complaintType,
+          mediaType: formData.mediaType
+        }
       };
+
+      console.log('Submitting complaint with data:', JSON.stringify(complaintData, null, 2));
 
       // Call API directly with proper authentication
       const token = localStorage.getItem('token');
@@ -165,8 +190,9 @@ function ComplaintPageContent() {
       
       const result = await response.json();
       setSuccess(true);
-      setTrackingId(result.complaint.tracking_id);
-      toast.success('Grievance submitted successfully!');
+      // Backend returns reference_no, not tracking_id
+      setTrackingId(result.reference_no);
+      toast.success('Complaint submitted successfully!');
     } catch (error: any) {
       const errorMessage = error.message || 'An unexpected error occurred while submitting your complaint. Please try again later.';
       setError(errorMessage);
@@ -330,14 +356,27 @@ function ComplaintPageContent() {
                   onChange={handleInputChange}
                   className="form-select w-full"
                   required
+                  disabled={loading}
                 >
-                  <option value="">Select a department</option>
+                  <option value="">
+                    {loading ? 'Loading departments...' : 'Select a department'}
+                  </option>
                   {departments.map((dept) => (
                     <option key={dept.id} value={dept.code}>
                       {dept.name}
                     </option>
                   ))}
                 </select>
+                {!loading && departments.length === 0 && (
+                  <p className="mt-2 text-sm text-red-600 dark:text-red-400">
+                    No departments available. Please try refreshing the page.
+                  </p>
+                )}
+                {departments.length > 0 && (
+                  <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                    {departments.length} department{departments.length !== 1 ? 's' : ''} available
+                  </p>
+                )}
               </div>
               <div>
                 <label htmlFor="category" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">

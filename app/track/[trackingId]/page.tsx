@@ -95,7 +95,21 @@ export default function TrackComplaintPage({ params }: { params: { trackingId: s
   useEffect(() => {
     const fetchComplaint = async () => {
       try {
-        const response = await fetch(`/api/complaints/track?trackingId=${params.trackingId}`);
+        // Get auth token from localStorage
+        const token = localStorage.getItem('token');
+        
+        const headers: HeadersInit = {
+          'Content-Type': 'application/json'
+        };
+        
+        // Add Authorization header if token exists
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+        
+        const response = await fetch(`/api/complaints/track?trackingId=${params.trackingId}`, {
+          headers
+        });
         const data = await response.json();
 
         if (response.ok) {
@@ -261,14 +275,18 @@ export default function TrackComplaintPage({ params }: { params: { trackingId: s
                   <Calendar className="w-4 h-4 mr-3 mt-0.5 text-gray-400" />
                   <div>
                     <p className="text-xs text-gray-500 dark:text-gray-400">Filed</p>
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">{formatDate(new Date(complaint.dateFiled))}</p>
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">
+                      {complaint.dateFiled ? formatDate(new Date(complaint.dateFiled)) : 'N/A'}
+                    </p>
                   </div>
                 </div>
                 <div className="flex items-start">
                   <Clock className="w-4 h-4 mr-3 mt-0.5 text-gray-400" />
                   <div>
                     <p className="text-xs text-gray-500 dark:text-gray-400">Last Updated</p>
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">{formatDate(new Date(complaint.updatedAt))}</p>
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">
+                      {complaint.updatedAt ? formatDate(new Date(complaint.updatedAt)) : 'N/A'}
+                    </p>
                   </div>
                 </div>
               </div>

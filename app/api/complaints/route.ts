@@ -28,6 +28,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+    console.log('Received complaint data:', JSON.stringify(body, null, 2));
     
     const response = await fetch(`${BACKEND_URL}/api/complaints`, {
       method: 'POST',
@@ -38,12 +39,22 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify(body),
     });
 
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
+      console.error('Backend error:', response.status, errorData);
+      return NextResponse.json(
+        { error: 'VALIDATION_ERROR', message: errorData.detail || 'Failed to create complaint' },
+        { status: response.status }
+      );
+    }
+
     const data = await response.json();
+    console.log('Complaint created successfully:', data);
     return NextResponse.json(data, { status: response.status });
   } catch (error: any) {
     console.error('Error proxying complaint creation:', error);
     return NextResponse.json(
-      { error: 'CREATION_ERROR', message: 'Failed to create complaint' },
+      { error: 'CREATION_ERROR', message: error.message || 'Failed to create complaint' },
       { status: 500 }
     );
   }

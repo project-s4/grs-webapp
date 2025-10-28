@@ -14,7 +14,23 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const response = await fetch(`${BACKEND_URL}/api/complaints/track/${trackingId}`);
+    // Pass Authorization header to backend if present
+    const authHeader = request.headers.get("Authorization");
+    
+    const response = await fetch(`${BACKEND_URL}/api/complaints/track/${trackingId}`, {
+      headers: authHeader ? {
+        'Authorization': authHeader
+      } : {}
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ detail: 'Failed to track complaint' }));
+      return NextResponse.json(
+        { error: 'TRACKING_ERROR', message: errorData.detail || 'Complaint not found' },
+        { status: response.status }
+      );
+    }
+    
     const data = await response.json();
     
     const nextResponse = NextResponse.json(data, { status: response.status });
