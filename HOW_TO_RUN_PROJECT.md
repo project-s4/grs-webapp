@@ -3,6 +3,7 @@
 ## 📋 **Prerequisites**
 
 Before running the project, make sure you have:
+
 - ✅ **Node.js** installed (version 16 or higher)
 - ✅ **Docker Desktop** installed and running
 - ✅ **Git** (if cloning from repository)
@@ -12,48 +13,66 @@ Before running the project, make sure you have:
 ## 🗂️ **Project Structure**
 
 Your project is a **Next.js full-stack application** with:
+
 - **Frontend**: React/Next.js (runs in browser)
 - **Backend**: Next.js API routes (runs with same server)
-- **Database**: PostgreSQL (runs in Docker container)
-- **Database Admin**: Adminer (runs in Docker container)
+- **Database**: PostgreSQL (hosted on Supabase)
+- **Database Admin**: Supabase Dashboard (web-based)
 
 ---
 
 ## 🛠️ **Step-by-Step Setup**
 
 ### **Step 1: Navigate to Project Directory**
+
 ```bash
 cd C:\Users\sathw\Desktop\project\grs-webapp
 ```
 
 ### **Step 2: Install Dependencies**
+
 ```bash
 npm install
 ```
 
-### **Step 3: Start Database (PostgreSQL + Adminer)**
+### **Step 3: Configure Database Connection**
+
 ```bash
-docker-compose up -d
+cp .env.local.example .env.local
+```
+
+**Update .env.local with your Supabase credentials:**
+
+```env
+POSTGRES_USER=postgres
+POSTGRES_HOST=db.your-project-id.supabase.co
+POSTGRES_DB=postgres
+POSTGRES_PASSWORD=your-db-password
+POSTGRES_PORT=5432
 ```
 
 **What this does:**
-- Starts PostgreSQL database on port 5433
-- Starts Adminer (database admin) on port 8080
-- Creates database tables automatically
-- Runs in background (`-d` flag)
 
-**Verify database is running:**
+- Sets up connection to your Supabase database
+- Enables SSL for secure connection
+- Uses your project-specific credentials
+
+**Verify database connection:**
+
 ```bash
-docker ps
+node check-db.js
 ```
-You should see both `grievance_postgres` and `grievance_adminer` containers running.
+
+You should see a successful connection message.
 
 ### **Step 4: Start Next.js Application (Frontend + Backend)**
+
 ```bash
 npm run dev
 ```
 
 **What this does:**
+
 - Starts Next.js development server
 - Runs on http://localhost:3000
 - Includes both frontend and backend API routes
@@ -65,44 +84,53 @@ npm run dev
 ## 🌐 **Access Your Application**
 
 ### **Main Application**
+
 - **URL**: http://localhost:3000
 - **Description**: Main web application
 
-### **Database Admin Panel** 
-- **URL**: http://localhost:8080
-- **Server**: `grievance_postgres`
-- **Username**: `postgres`
-- **Password**: `password`
-- **Database**: `grievance_portal`
+### **Database Admin Panel**
+
+- **URL**: https://app.supabase.com
+- Navigate to your project
+- Use the built-in SQL editor and database interface
+- Manage tables, run queries, and view data
+- Monitor database performance and connections
 
 ---
 
 ## 🎯 **Testing the Application**
 
 ### **1. Create Test Data (Optional)**
+
 ```bash
 node scripts/add-test-complaints.js
 ```
+
 This creates sample users and complaints for testing.
 
 ### **2. Register a New User**
+
 1. Go to http://localhost:3000
 2. Click "Sign up" or go to `/register`
 3. Create a citizen account
 4. Login with your new credentials
 
 ### **3. Test Login with Existing Users**
+
 From the database, you can login with:
+
 - Email: `test@example.com` (if test data was created)
 - Email: `sathwiksathwikbn321@gmail.com` (existing user)
 
 ### **4. File a Complaint**
+
 1. Login as citizen
-2. Go to "File New Complaint" 
+2. Go to "File New Complaint"
 3. Fill out the form
 4. Submit and get tracking ID
 
 ### **5. Test Admin Dashboard**
+
 1. Go to http://localhost:3000/admin/login
 2. Login with admin credentials
 3. View and manage complaints
@@ -111,35 +139,30 @@ From the database, you can login with:
 
 ## 🏃‍♂️ **Quick Start Commands**
 
-### **Start Everything:**
-```bash
-# Terminal 1: Start database
-docker-compose up -d
+### **Start Application:**
 
-# Terminal 2: Start application  
+```bash
+# Start Next.js application
 npm run dev
 ```
 
-### **Stop Everything:**
+### **Stop Application:**
+
 ```bash
 # Stop application: Ctrl+C in terminal
-
-# Stop database
-docker-compose down
-```
-
-### **Restart Database:**
-```bash
-docker-compose restart
 ```
 
 ### **View Database:**
-```bash
-# Check container status
-docker ps
 
-# View database logs
-docker logs grievance_postgres
+```bash
+# Test database connection
+node check-db.js
+
+# View table structure
+node scripts/db-info.js
+
+# Query data via Supabase Dashboard:
+# https://app.supabase.com/project/[your-project-id]
 ```
 
 ---
@@ -147,19 +170,23 @@ docker logs grievance_postgres
 ## 🔧 **Troubleshooting**
 
 ### **Problem: Database Connection Failed**
+
 ```bash
-# Check if Docker is running
-docker --version
+# Check your Supabase connection settings
+cat .env.local
 
-# Restart database containers
-docker-compose down
-docker-compose up -d
+# Verify internet connection
+ping db.your-project-id.supabase.co
 
-# Wait 10 seconds for database to initialize
-# Then restart Next.js: Ctrl+C and npm run dev
+# Check Supabase status
+# Visit: https://status.supabase.com
+
+# Test connection
+node check-db.js
 ```
 
 ### **Problem: Port Already in Use**
+
 ```bash
 # Check what's using port 3000
 netstat -an | findstr ":3000"
@@ -172,6 +199,7 @@ npm run dev
 ```
 
 ### **Problem: Login Not Working**
+
 ```bash
 # Add test data
 node scripts/add-test-complaints.js
@@ -183,10 +211,12 @@ curl http://localhost:3000/api/debug/complaints
 ```
 
 ### **Problem: Complaints Not Showing**
+
 1. Make sure you're logged in as the correct user
 2. Check browser console (F12) for errors
-3. Verify complaints exist in database via Adminer
+3. Verify complaints exist in Supabase Dashboard
 4. Check API logs in terminal
+5. Verify Row Level Security (RLS) policies in Supabase
 
 ---
 
@@ -213,18 +243,21 @@ grs-webapp/
 ## 🎪 **Application Features**
 
 ### **For Citizens:**
+
 - Register/Login
 - File complaints
 - Track complaint status
 - View complaint history
 
 ### **For Admins:**
+
 - Login to admin dashboard
-- View department complaints  
+- View department complaints
 - Assign complaints to department staff
 - Update complaint status
 
 ### **For Department Staff:**
+
 - Login to department dashboard
 - View assigned complaints
 - Update complaint status
@@ -235,7 +268,7 @@ grs-webapp/
 ## 🚨 **Important Notes**
 
 1. **Always start database FIRST** with `docker-compose up -d`
-2. **Then start the application** with `npm run dev`  
+2. **Then start the application** with `npm run dev`
 3. **Database must be running** for login/registration to work
 4. **Use Ctrl+C** to stop the Next.js server
 5. **Use `docker-compose down`** to stop database containers
@@ -244,32 +277,37 @@ grs-webapp/
 
 ## 📞 **Common URLs**
 
-| Service | URL | Purpose |
-|---------|-----|---------|
-| **Main App** | http://localhost:3000 | Web application |
-| **Database Admin** | http://localhost:8080 | View/edit database |
-| **API Debug** | http://localhost:3000/api/debug/complaints | Check data |
+| Service                | URL                                        | Purpose             |
+| ---------------------- | ------------------------------------------ | ------------------- |
+| **Main App**           | http://localhost:3000                      | Web application     |
+| **Supabase Dashboard** | https://app.supabase.com                   | Database management |
+| **API Debug**          | http://localhost:3000/api/debug/complaints | Check data          |
+| **Supabase Status**    | https://status.supabase.com                | Service status      |
 
 ---
 
 ## ✅ **Success Indicators**
 
-**Database Running Successfully:**
+**Database Connection Successful:**
+
 ```
-✔ Container grievance_postgres  Running
-✔ Container grievance_adminer   Running
+✓ Connected to Supabase PostgreSQL database
+✓ SSL connection established
+✓ Tables verified and accessible
 ```
 
 **Application Running Successfully:**
+
 ```
 ✓ Ready in 2.7s
 - Local: http://localhost:3000
-Connected to PostgreSQL database
+Connected to Supabase PostgreSQL database
 Database initialized successfully
 ```
 
 **Ready to Use When You See:**
-- ✅ Database containers running
-- ✅ Next.js compiled successfully  
-- ✅ "Connected to PostgreSQL database" message
+
+- ✅ Supabase connection successful
+- ✅ Next.js compiled successfully
+- ✅ "Connected to Supabase PostgreSQL database" message
 - ✅ Application accessible at http://localhost:3000

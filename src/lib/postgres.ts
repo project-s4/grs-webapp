@@ -1,14 +1,14 @@
 import { Pool } from 'pg';
 import { randomUUID } from 'crypto';
 
-// PostgreSQL connection configuration
+// Supabase PostgreSQL connection configuration
 const pool = new Pool({
   user: process.env.POSTGRES_USER || 'postgres',
-  host: process.env.POSTGRES_HOST || 'localhost',
-  database: process.env.POSTGRES_DB || 'grievance_portal',
+  host: process.env.POSTGRES_HOST || 'db.hwlngdpexkgbtrzatfox.supabase.co',
+  database: process.env.POSTGRES_DB || 'postgres',
   password: process.env.POSTGRES_PASSWORD || 'password',
-  port: parseInt(process.env.POSTGRES_PORT || '5433'),
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+  port: parseInt(process.env.POSTGRES_PORT || '5432'),
+  ssl: { rejectUnauthorized: false }
 });
 
 // Test connection and create tables if they don't exist
