@@ -4,6 +4,8 @@ import { query } from '@/src/lib/postgres';
 import { NLPService } from '@/lib/nlp-service';
 import { EmailService } from '@/lib/email-service';
 
+export const dynamic = 'force-dynamic';
+
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8001';
 
 function generateTrackingId(): string {
@@ -165,7 +167,7 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
+    const searchParams = request.nextUrl.searchParams;
     const status = searchParams.get('status');
     let department_id = searchParams.get('department_id');
     const category = searchParams.get('category');

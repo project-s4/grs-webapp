@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/src/lib/postgres';
 
+export const dynamic = 'force-dynamic';
+
 // GET - Get user's complaints
 export async function GET(request: NextRequest) {
   try {
@@ -12,7 +14,7 @@ export async function GET(request: NextRequest) {
       'Access-Control-Allow-Credentials': 'true',
     };
     
-    const { searchParams } = new URL(request.url);
+    const searchParams = request.nextUrl.searchParams;
     const email = searchParams.get('email');
     const status = searchParams.get('status');
     const category = searchParams.get('category');

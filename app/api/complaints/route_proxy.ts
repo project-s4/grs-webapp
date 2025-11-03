@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+export const dynamic = 'force-dynamic';
+
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8001';
 
 // Proxy all complaints requests to backend
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
+    const searchParams = request.nextUrl.searchParams;
     const backendParams = new URLSearchParams(searchParams);
     
     const response = await fetch(`${BACKEND_URL}/api/complaints?${backendParams}`, {
