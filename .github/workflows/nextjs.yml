@@ -1,16 +1,18 @@
 # Sample workflow for building and deploying a Next.js site to GitHub Pages
 #
+# DISABLED: This app uses API routes which are not supported on GitHub Pages.
+# GitHub Pages only supports static sites. Use Vercel, Netlify, or another
+# platform that supports serverless functions for Next.js API routes.
+#
 # To get started with Next.js see: https://nextjs.org/docs/getting-started
 #
 name: Deploy Next.js site to Pages
 
+# Workflow disabled - API routes not supported on GitHub Pages
 on:
-  # Runs on pushes targeting the default branch
-  push:
-    branches: ["main"]
-
-  # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
+  # push:
+  #   branches: ["main"]
 
 # Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
 permissions:
@@ -68,6 +70,7 @@ jobs:
       - name: Build with Next.js
         run: ${{ steps.detect-package-manager.outputs.runner }} next build
       - name: Upload artifact
+        if: false  # Disabled - API routes not supported on GitHub Pages
         uses: actions/upload-pages-artifact@v3
         with:
           path: ./out
