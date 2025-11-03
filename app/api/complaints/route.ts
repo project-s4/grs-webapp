@@ -14,6 +14,17 @@ export async function GET(request: NextRequest) {
       },
     });
 
+    // Check if response is JSON
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      const text = await response.text();
+      console.error('Backend returned non-JSON response:', text.substring(0, 200));
+      return NextResponse.json(
+        { error: 'BACKEND_ERROR', message: `Backend error: ${response.status} ${response.statusText}` },
+        { status: response.status || 500 }
+      );
+    }
+
     const data = await response.json();
     return NextResponse.json(data, { status: response.status });
   } catch (error: any) {

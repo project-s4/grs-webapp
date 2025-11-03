@@ -1,9 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'react-hot-toast';
-import { useAuth } from '@/src/contexts/auth-context';
 import LoginPageLayout from '@/src/components/LoginPageLayout';
 
 interface LoginFormData {
@@ -13,16 +12,22 @@ interface LoginFormData {
 
 export default function DepartmentLoginPage() {
   const router = useRouter();
-  const { login } = useAuth();
-  const [redirect, setRedirect] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+  const redirect = searchParams.get('redirect');
 
-  // Safely get redirect parameter on client-side only
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const searchParams = new URLSearchParams(window.location.search);
-      setRedirect(searchParams.get('redirect'));
+    const token = localStorage.getItem('token');
+    if (token) {
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        if (payload.role === 'department' || payload.role === 'department_admin') {
+          window.location.href = redirect || '/department/dashboard';
+        }
+      } catch (error) {
+        localStorage.removeItem('token');
+      }
     }
-  }, []);
+  }, [redirect]);
 
   const [formData, setFormData] = useState<LoginFormData>({
     email: '',
@@ -38,32 +43,63 @@ export default function DepartmentLoginPage() {
     }));
   };
 
-  const onSubmit = async (data: LoginFormData) => {
-    try {
-      const result = await login(data.email, data.password);
-      if (result.success && result.user) {
-        toast.success('Login successful!');
-        
-        // Check if user is department user
-        if (result.user.role === 'department' || result.user.role === 'department_admin') {
-          window.location.href = redirect || '/department/dashboard';
-        } else {
-          toast.error('Access denied. Department credentials required.');
-          localStorage.removeItem('token');
-        }
-      }
-    } catch (error) {
-      console.error('Login failed:', error);
-      toast.error('Login failed. Please check your credentials.');
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
-      await onSubmit(formData);
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: formData.email, password: formData.password })
+      });
+
+      const result = await response.json();
+      
+      if (!response.ok) {
+        const errorMessage = result.message || result.details || result.error || 'Login failed. Please check your credentials.';
+        toast.error(errorMessage);
+        return;
+      }
+
+      // Store token
+      const token = result.access_token || result.token;
+      if (!token) {
+        toast.error('Login failed: No token received');
+        return;
+      }
+
+      localStorage.setItem('token', token);
+
+      // Check if user is actually a department user
+      if (result.user) {
+        if (result.user.role === 'department' || result.user.role === 'department_admin') {
+          toast.success('Login successful!');
+          window.location.href = redirect || '/department/dashboard';
+        } else {
+          toast.error('Access denied. Department credentials required.');
+          localStorage.removeItem('token');
+        }
+      } else {
+        // If user data not in response, decode from token
+        try {
+          const payload = JSON.parse(atob(token.split('.')[1]));
+          if (payload.role === 'department' || payload.role === 'department_admin') {
+            toast.success('Login successful!');
+            window.location.href = redirect || '/department/dashboard';
+          } else {
+            toast.error('Access denied. Department credentials required.');
+            localStorage.removeItem('token');
+          }
+        } catch (decodeError) {
+          console.error('Failed to decode token:', decodeError);
+          toast.error('Login failed: Invalid token format');
+          localStorage.removeItem('token');
+        }
+      }
+    } catch (error: any) {
+      console.error('Login failed:', error);
+      toast.error(error.message || 'Login failed. Please check your credentials.');
     } finally {
       setIsLoading(false);
     }

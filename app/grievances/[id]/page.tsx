@@ -2,7 +2,7 @@
 
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { useAuth } from '@/contexts/auth-context';
+import { useAuth } from '@/src/contexts/auth-context';
 
 type Grievance = {
   id: string;
@@ -30,7 +30,7 @@ type Grievance = {
 export default function GrievanceDetailPage() {
   const { id } = useParams();
   const router = useRouter();
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, loading: authLoading } = useAuth();
   const [grievance, setGrievance] = useState<Grievance | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -38,6 +38,12 @@ export default function GrievanceDetailPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
+    // Wait for auth to finish loading
+    if (authLoading) {
+      return;
+    }
+
+    // Check authentication after auth has loaded
     if (!isAuthenticated()) {
       router.push(`/login?redirect=/grievances/${id}`);
       return;
@@ -46,49 +52,94 @@ export default function GrievanceDetailPage() {
     const fetchGrievance = async () => {
       try {
         setLoading(true);
-        // Replace with actual API call
-        // const response = await api.get(`/grievances/${id}`);
-        // setGrievance(response.data);
+        setError('');
         
-        // Mock data for now
-        setTimeout(() => {
-          setGrievance({
-            id: id as string,
-            title: 'Garbage not collected',
-            description: 'Garbage has not been collected for the past 3 days in our area. The trash is piling up and causing sanitation issues.',
-            status: 'pending',
-            category: 'sanitation',
-            location: '123 Main St, Anytown, AN 12345',
-            createdAt: '2023-10-01T10:00:00Z',
-            updatedAt: '2023-10-01T10:00:00Z',
-            attachments: [
-              {
-                id: '1',
-                url: 'https://via.placeholder.com/600x400',
-                name: 'trash.jpg',
-                type: 'image/jpeg',
-              },
-            ],
-            comments: [
-              {
-                id: '1',
-                content: 'We have received your complaint and assigned it to the sanitation department.',
-                author: 'Support Team',
-                createdAt: '2023-10-01T11:30:00Z',
-              },
-            ],
+        const token = localStorage.getItem('token');
+        const headers: HeadersInit = {
+          'Content-Type': 'application/json'
+        };
+        
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+
+        // Fetch complaint
+        const response = await fetch(`/api/complaints/${id}`, {
+          headers
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ error: 'Failed to fetch complaint' }));
+          throw new Error(errorData.error || errorData.message || 'Failed to load complaint');
+        }
+
+        const data = await response.json();
+        const complaint = data.complaint || data;
+        
+        // Map backend complaint to frontend Grievance type
+        const mappedGrievance: Grievance = {
+          id: complaint.id || complaint._id || id as string,
+          title: complaint.title || complaint.description?.substring(0, 100) || 'Untitled Complaint',
+          description: complaint.description || '',
+          status: (complaint.status?.toLowerCase().replace(' ', '_') || 'pending') as 'pending' | 'in_progress' | 'resolved' | 'rejected',
+          category: complaint.category || 'other',
+          location: complaint.location || complaint.address || 'Not specified',
+          createdAt: complaint.created_at || complaint.createdAt || complaint.date_filed || new Date().toISOString(),
+          updatedAt: complaint.updated_at || complaint.updatedAt || new Date().toISOString(),
+        };
+
+        // Fetch attachments if available
+        if (complaint.attachments) {
+          if (typeof complaint.attachments === 'string') {
+            try {
+              const parsed = JSON.parse(complaint.attachments);
+              mappedGrievance.attachments = Array.isArray(parsed) ? parsed : [];
+            } catch {
+              mappedGrievance.attachments = [];
+            }
+          } else if (Array.isArray(complaint.attachments)) {
+            mappedGrievance.attachments = complaint.attachments.map((att: any, idx: number) => ({
+              id: att.id || att._id || idx.toString(),
+              url: att.url || att.fileUrl || '',
+              name: att.name || att.filename || att.originalName || `attachment-${idx}`,
+              type: att.type || att.fileType || 'unknown'
+            }));
+          }
+        }
+
+        // Fetch comments
+        try {
+          const commentsResponse = await fetch(`/api/complaints/${id}/comments`, {
+            headers
           });
-          setLoading(false);
-        }, 500);
-      } catch (err) {
+          
+          if (commentsResponse.ok) {
+            const commentsData = await commentsResponse.json();
+            const commentsList = commentsData.comments || commentsData || [];
+            mappedGrievance.comments = commentsList.map((comment: any) => ({
+              id: comment.id || comment._id || Date.now().toString(),
+              content: comment.content || comment.text || comment.comment || '',
+              author: comment.author || comment.authorName || comment.user_name || 'Anonymous',
+              createdAt: comment.created_at || comment.createdAt || new Date().toISOString()
+            }));
+          }
+        } catch (commentsErr) {
+          console.error('Failed to fetch comments:', commentsErr);
+          // Don't fail the whole page if comments fail
+          mappedGrievance.comments = [];
+        }
+
+        setGrievance(mappedGrievance);
+        setLoading(false);
+      } catch (err: any) {
         console.error('Failed to fetch grievance:', err);
-        setError('Failed to load grievance details');
+        setError(err.message || 'Failed to load grievance details. Please try again.');
         setLoading(false);
       }
     };
 
     fetchGrievance();
-  }, [id, isAuthenticated, router]);
+  }, [id, authLoading, isAuthenticated, router]);
 
   const handleCommentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -96,9 +147,26 @@ export default function GrievanceDetailPage() {
 
     setIsSubmitting(true);
     try {
-      // Replace with actual API call
-      // await api.post(`/grievances/${id}/comments`, { content: comment });
+      const token = localStorage.getItem('token');
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json'
+      };
       
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const response = await fetch(`/api/complaints/${id}/comments`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ content: comment, text: comment })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Failed to post comment' }));
+        throw new Error(errorData.error || errorData.message || 'Failed to post comment');
+      }
+
       // Update local state optimistically
       if (grievance) {
         setGrievance({
@@ -116,9 +184,10 @@ export default function GrievanceDetailPage() {
       }
       
       setComment('');
-    } catch (err) {
+      setError(''); // Clear any previous errors
+    } catch (err: any) {
       console.error('Failed to post comment:', err);
-      setError('Failed to post comment');
+      setError(err.message || 'Failed to post comment. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -161,10 +230,13 @@ export default function GrievanceDetailPage() {
     return categories[category] || category;
   };
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+      <div className="flex items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-400">Loading complaint details...</p>
+        </div>
       </div>
     );
   }

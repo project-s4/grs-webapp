@@ -3,7 +3,7 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { useAuth } from '@/contexts/auth-context';
+import { useAuth } from '@/src/contexts/auth-context';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
