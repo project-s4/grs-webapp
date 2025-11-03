@@ -57,7 +57,7 @@ export async function PATCH(
 
     // Build update query
     let updateFields = [];
-    let params_list = [parseInt(id)];
+    let params_list: any[] = [parseInt(id)];
     let paramIndex = 2;
 
     if (status) {
