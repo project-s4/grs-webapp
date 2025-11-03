@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import jwt from 'jsonwebtoken';
+import * as jwt from 'jsonwebtoken';
 import { query } from '@/src/lib/postgres';
 import { NLPService } from '@/lib/nlp-service';
 import { EmailService } from '@/lib/email-service';
