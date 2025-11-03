@@ -198,7 +198,7 @@ export default function AdminDashboardPage() {
     setAssigning(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`/api/complaints/${selectedComplaint._id}/assign`, {
+      const response = await fetch(`/api/complaints/${selectedComplaint.id}/assign`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -531,7 +531,7 @@ export default function AdminDashboardPage() {
                         className="rounded border-gray-300 dark:border-gray-600"
                         onChange={(e) => {
                           if (e.target.checked) {
-                            setSelectedComplaints(new Set(filteredComplaints.map(c => c._id)));
+                            setSelectedComplaints(new Set(filteredComplaints.map(c => c.id)));
                           } else {
                             setSelectedComplaints(new Set());
                           }
