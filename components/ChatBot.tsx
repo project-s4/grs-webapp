@@ -22,11 +22,29 @@ export default function ChatBot() {
     scrollToBottom();
   }, [messages]);
 
+  // Auto-focus input when chat opens or is unminimized
   useEffect(() => {
     if (isOpen && !isMinimized) {
-      inputRef.current?.focus();
+      // Small delay to ensure the animation completes and input is rendered
+      const timeoutId = setTimeout(() => {
+        inputRef.current?.focus();
+      }, 100);
+      
+      return () => clearTimeout(timeoutId);
     }
   }, [isOpen, isMinimized]);
+
+  // Auto-focus input after sending a message (so user can continue typing)
+  useEffect(() => {
+    if (!isLoading && isOpen && !isMinimized) {
+      // Focus after message is sent and loading is complete
+      const timeoutId = setTimeout(() => {
+        inputRef.current?.focus();
+      }, 50);
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [isLoading, isOpen, isMinimized]);
 
   const handleSendMessage = async () => {
     if (!inputMessage.trim() || isLoading) return;
@@ -34,6 +52,11 @@ export default function ChatBot() {
     const message = inputMessage.trim();
     setInputMessage('');
     await sendMessage(message);
+    
+    // Refocus input after sending message
+    setTimeout(() => {
+      inputRef.current?.focus();
+    }, 100);
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -47,11 +70,21 @@ export default function ChatBot() {
     setIsOpen(!isOpen);
     if (!isOpen) {
       setIsMinimized(false);
+      // Focus input when opening chat
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 200);
     }
   };
 
   const toggleMinimize = () => {
     setIsMinimized(!isMinimized);
+    // Focus input when unminimizing
+    if (isMinimized) {
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 200);
+    }
   };
 
   const formatTime = (date: Date) => {

@@ -32,25 +32,22 @@ export function formatDate(date: Date): string {
 
 // Get status badge styling
 export function getStatusBadge(status: string): string {
-  const statusLower = status.toLowerCase();
+  const statusLower = status.toLowerCase().replace(/\s+/g, '_').replace('-', '_');
   
-  switch (statusLower) {
-    case 'pending':
-      return 'text-yellow-800 bg-yellow-100';
-    case 'in progress':
-    case 'in-progress':
-      return 'text-blue-800 bg-blue-100';
-    case 'resolved':
-      return 'text-green-800 bg-green-100';
-    case 'escalated':
-      return 'text-purple-800 bg-purple-100';
-    case 'closed':
-      return 'text-gray-800 bg-gray-100';
-    case 'rejected':
-      return 'text-red-800 bg-red-100';
-    default:
-      return 'text-gray-800 bg-gray-100';
-  }
+  const badgeClasses: { [key: string]: string } = {
+    'pending': 'text-yellow-800 bg-yellow-100 dark:text-yellow-300 dark:bg-yellow-900',
+    'new': 'text-yellow-800 bg-yellow-100 dark:text-yellow-300 dark:bg-yellow-900',
+    'in_progress': 'text-blue-800 bg-blue-100 dark:text-blue-300 dark:bg-blue-900',
+    'in-progress': 'text-blue-800 bg-blue-100 dark:text-blue-300 dark:bg-blue-900',
+    'in progress': 'text-blue-800 bg-blue-100 dark:text-blue-300 dark:bg-blue-900',
+    'resolved': 'text-green-800 bg-green-100 dark:text-green-300 dark:bg-green-900',
+    'triaged': 'text-purple-800 bg-purple-100 dark:text-purple-300 dark:bg-purple-900',
+    'escalated': 'text-red-800 bg-red-100 dark:text-red-300 dark:bg-red-900',
+    'closed': 'text-gray-800 bg-gray-100 dark:text-gray-300 dark:bg-gray-900',
+    'rejected': 'text-red-800 bg-red-100 dark:text-red-300 dark:bg-red-900',
+  };
+  
+  return badgeClasses[statusLower] || 'text-gray-800 bg-gray-100 dark:text-gray-300 dark:bg-gray-900';
 }
 
 // Format file size

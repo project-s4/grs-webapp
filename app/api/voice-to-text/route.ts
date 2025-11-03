@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:8000';
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8001';
 
 export async function POST(request: NextRequest) {
   try {
@@ -38,8 +38,8 @@ export async function POST(request: NextRequest) {
     const blob = new Blob([buffer], { type: audioFile.type });
     aiFormData.append('file', blob, audioFile.name);
     
-    // Call AI service transcription endpoint
-    const response = await fetch(`${AI_SERVICE_URL}/audio/transcribe`, {
+    // Call backend AI audio transcription endpoint
+    const response = await fetch(`${BACKEND_URL}/api/ai/audio/transcribe`, {
       method: 'POST',
       body: aiFormData,
     });

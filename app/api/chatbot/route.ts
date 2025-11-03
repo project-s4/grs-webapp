@@ -12,12 +12,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get AI service URL from environment variable
-    const aiServiceUrl = process.env.AI_SERVICE_URL || 'http://localhost:8000';
-    console.log('Calling AI service at:', `${aiServiceUrl}/chat`);
+    // Get backend URL from environment variable (AI service is now part of backend)
+    const backendUrl = process.env.BACKEND_URL || 'http://localhost:8001';
+    console.log('Calling backend AI chat endpoint at:', `${backendUrl}/api/ai/chat`);
 
-    // Call the AI service chat endpoint
-    const response = await fetch(`${aiServiceUrl}/chat`, {
+    // Call the backend AI chat endpoint
+    const response = await fetch(`${backendUrl}/api/ai/chat`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

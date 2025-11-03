@@ -44,12 +44,33 @@ export async function PATCH(
       body: JSON.stringify(body),
     });
 
+    // Check if response is ok before parsing JSON
+    if (!response.ok) {
+      let errorMessage = 'Failed to update complaint';
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.detail || errorData.error || errorData.message || errorMessage;
+      } catch {
+        // If response is not JSON, try to get text
+        try {
+          const errorText = await response.text();
+          errorMessage = errorText || errorMessage;
+        } catch {
+          errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+        }
+      }
+      return NextResponse.json(
+        { error: 'UPDATE_ERROR', message: errorMessage },
+        { status: response.status || 500 }
+      );
+    }
+
     const data = await response.json();
     return NextResponse.json(data, { status: response.status });
   } catch (error: any) {
     console.error('Error proxying complaint update:', error);
     return NextResponse.json(
-      { error: 'UPDATE_ERROR', message: 'Failed to update complaint' },
+      { error: 'UPDATE_ERROR', message: error.message || 'Failed to update complaint' },
       { status: 500 }
     );
   }
