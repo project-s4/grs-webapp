@@ -1,6 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
+import jwt from 'jsonwebtoken';
+import { query } from '@/src/lib/postgres';
+import { NLPService } from '@/lib/nlp-service';
+import { EmailService } from '@/lib/email-service';
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8001';
+
+function generateTrackingId(): string {
+  const prefix = 'GRS';
+  const timestamp = Date.now().toString(36).toUpperCase();
+  const random = Math.random().toString(36).substring(2, 8).toUpperCase();
+  return `${prefix}-${timestamp}-${random}`;
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -56,7 +67,7 @@ export async function POST(request: NextRequest) {
     }
 
     // NLP Analysis
-    const nlpAnalysis = NLPService.analyzeComplaint(title, description);
+    const nlpAnalysis = NLPService.getInstance().analyzeComplaint(title + ' ' + description);
     
     // Generate tracking ID
     const trackingId = generateTrackingId();
@@ -73,7 +84,7 @@ export async function POST(request: NextRequest) {
         department_id ? parseInt(department_id) : null,
         title,
         description,
-        category || nlpAnalysis.category,
+        category || nlpAnalysis.suggestedDepartment || 'General',
         priority || nlpAnalysis.priority,
         location,
         phone,
@@ -90,12 +101,15 @@ export async function POST(request: NextRequest) {
     // Send email confirmation
     try {
       if (email) {
-        await EmailService.sendComplaintConfirmation(
-          email,
-          'User', // We don't have user name for anonymous complaints
-          complaint.tracking_id,
-          complaint.title
-        );
+        await EmailService.getInstance().sendComplaintConfirmation({
+          trackingId: complaint.tracking_id,
+          status: complaint.status,
+          department: complaint.department_id || 'Unassigned',
+          category: complaint.category || 'General',
+          complainantName: 'User', // We don't have user name for anonymous complaints
+          complainantEmail: email,
+          description: complaint.title,
+        });
       }
     } catch (emailError) {
       console.error('Email notification failed:', emailError);
@@ -114,10 +128,10 @@ export async function POST(request: NextRequest) {
         created_at: complaint.created_at,
       },
       nlpAnalysis: {
-        category: nlpAnalysis.category,
         suggestedDepartment: nlpAnalysis.suggestedDepartment,
         priority: nlpAnalysis.priority,
-        confidence: nlpAnalysis.confidence,
+        sentiment: nlpAnalysis.sentiment,
+        urgency: nlpAnalysis.urgency,
       },
     });
 

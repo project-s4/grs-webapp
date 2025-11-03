@@ -117,7 +117,7 @@ export class NLPService {
     contact?: string;
     urgencyIndicators: string[];
   } {
-    const urgencyIndicators = [];
+    const urgencyIndicators: string[] = [];
     
     // Check for urgency indicators
     this.priorityKeywords.urgent.forEach(keyword => {
