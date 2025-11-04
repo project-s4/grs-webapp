@@ -20,10 +20,53 @@ export async function POST(request: NextRequest) {
     });
 
     if (!response.ok) {
+      // Check content type before parsing
+      const contentType = response.headers.get('content-type') || '';
+      
+      // Read response body as text first (can only read once)
       const errorText = await response.text();
       console.error('Backend error:', errorText);
+      
+      // Try to parse as JSON if possible
+      let errorMessage = 'Login failed. Please check your credentials.';
+      let errorData: any = null;
+      
+      if (contentType.includes('application/json')) {
+        try {
+          errorData = JSON.parse(errorText);
+          // Handle different error response formats
+          if (Array.isArray(errorData)) {
+            // Pydantic validation errors
+            errorMessage = errorData.map((err: any) => err.msg || err.message || JSON.stringify(err)).join(', ');
+          } else if (errorData.detail) {
+            // FastAPI error detail
+            if (typeof errorData.detail === 'string') {
+              errorMessage = errorData.detail;
+            } else if (Array.isArray(errorData.detail)) {
+              errorMessage = errorData.detail.map((err: any) => err.msg || err.message || JSON.stringify(err)).join(', ');
+            } else {
+              errorMessage = JSON.stringify(errorData.detail);
+            }
+          } else if (errorData.message) {
+            errorMessage = errorData.message;
+          } else if (errorData.error) {
+            errorMessage = errorData.error;
+          }
+        } catch (parseError) {
+          // Not JSON, use text as-is
+          errorMessage = errorText || 'Login failed. Please check your credentials.';
+        }
+      } else {
+        // Not JSON, use text as-is
+        errorMessage = errorText || 'Login failed. Please check your credentials.';
+      }
+      
       return NextResponse.json(
-        { error: 'LOGIN_FAILED', message: errorText || 'Login failed' },
+        { 
+          error: 'LOGIN_FAILED', 
+          message: errorMessage,
+          details: errorData || errorText 
+        },
         { status: response.status }
       );
     }

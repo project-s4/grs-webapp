@@ -35,14 +35,48 @@ export default function LoginPage() {
     if (token) {
       try {
         const payload = JSON.parse(atob(token.split('.')[1]));
-          if (payload.role === 'citizen') {
-          router.push(redirect || '/user/dashboard');
+        const userRole = payload.role;
+        
+        // Determine redirect path
+        let redirectPath = '/user/dashboard'; // Default for citizens
+        
+        if (redirect) {
+          // Handle redirect parameter
+          // Special case: 'home' or '/home' → home page
+          if (redirect === 'home' || redirect === '/home') {
+            redirectPath = '/';
+          } 
+          // Special case: 'dashboard' or '/dashboard' → role-based dashboard
+          else if (redirect === 'dashboard' || redirect === '/dashboard') {
+            if (userRole === 'admin') {
+              redirectPath = '/admin/dashboard';
+            } else if (userRole === 'department' || userRole === 'department_admin') {
+              redirectPath = '/department/dashboard';
+            } else {
+              redirectPath = '/user/dashboard';
+            }
+          } 
+          // Any other path starting with /
+          else if (redirect.startsWith('/')) {
+            redirectPath = redirect;
+          }
+        } else {
+          // Default: Role-based redirect if no redirect parameter
+          if (userRole === 'admin') {
+            redirectPath = '/admin/dashboard';
+          } else if (userRole === 'department' || userRole === 'department_admin') {
+            redirectPath = '/department/dashboard';
+          } else {
+            redirectPath = '/user/dashboard';
+          }
         }
+        
+        router.push(redirectPath);
       } catch (error) {
         localStorage.removeItem('token');
       }
     }
-  }, [redirect]);
+  }, [redirect, router]);
 
   const onSubmit = async (data: LoginFormData) => {
     try {
@@ -82,16 +116,50 @@ export default function LoginPage() {
         localStorage.setItem('token', token);
         toast.success('Login successful!', { duration: 2000 });
         
-      // Navigate based on role - check both result.user and result
-      const userRole = result.user?.role || result.role;
-      console.log('User role:', userRole);
-      console.log('About to redirect to /user/dashboard...');
+        // Get user role from response
+        const userRole = result.user?.role || result.role;
+        console.log('User role:', userRole);
         
-      // Small delay to show success toast before redirect
-      setTimeout(() => {
-        console.log('Redirecting now to /user/dashboard');
-        router.push('/user/dashboard');
-      }, 1000);
+        // Determine redirect destination
+        let redirectPath = '/user/dashboard'; // Default for citizens
+        
+        // If redirect parameter exists and is valid, use it
+        if (redirect) {
+          // Handle special cases: 'home' or '/home' → home page
+          if (redirect === 'home' || redirect === '/home') {
+            redirectPath = '/';
+          } 
+          // Handle 'dashboard' or '/dashboard' → role-based dashboard
+          else if (redirect === 'dashboard' || redirect === '/dashboard') {
+            if (userRole === 'admin') {
+              redirectPath = '/admin/dashboard';
+            } else if (userRole === 'department' || userRole === 'department_admin') {
+              redirectPath = '/department/dashboard';
+            } else {
+              redirectPath = '/user/dashboard';
+            }
+          } 
+          // Handle any other path starting with /
+          else if (redirect.startsWith('/')) {
+            redirectPath = redirect;
+          }
+        } else {
+          // Default: Role-based redirect if no redirect parameter
+          if (userRole === 'admin') {
+            redirectPath = '/admin/dashboard';
+          } else if (userRole === 'department' || userRole === 'department_admin') {
+            redirectPath = '/department/dashboard';
+          } else {
+            redirectPath = '/user/dashboard';
+          }
+        }
+        
+        console.log('Redirecting to:', redirectPath);
+        
+        // Small delay to show success toast before redirect
+        setTimeout(() => {
+          router.push(redirectPath);
+        }, 500);
       } else {
         console.error('No token in response');
         toast.error('Login failed: No token received');

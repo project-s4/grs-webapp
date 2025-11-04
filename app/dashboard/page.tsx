@@ -19,22 +19,41 @@ export default function DashboardPage() {
   const router = useRouter();
   const [grievances, setGrievances] = useState<Grievance[]>([]);
   const [isLoadingGrievances, setIsLoadingGrievances] = useState(true);
+  const [shouldRedirect, setShouldRedirect] = useState(false);
 
   useEffect(() => {
-    if (!loading && !user) {
-      router.push('/login');
-      return;
+    if (!loading) {
+      if (!user) {
+        // No user, redirect to login with dashboard redirect
+        router.replace('/login?redirect=dashboard');
+        return;
+      }
+
+      // User exists, redirect to role-based dashboard after a brief moment
+      // This allows the page to render briefly with the dashboard UI
+      const redirectTimer = setTimeout(() => {
+        setShouldRedirect(true);
+        if (user.role === 'admin') {
+          router.replace('/admin/dashboard');
+        } else if (user.role === 'department' || user.role === 'department_admin') {
+          router.replace('/department/dashboard');
+        } else {
+          router.replace('/user/dashboard');
+        }
+      }, 500); // Small delay to show dashboard content
+
+      return () => clearTimeout(redirectTimer);
     }
 
-    if (user) {
-      // Fetch user's grievances
+    if (user && !shouldRedirect) {
+      // Fetch user's grievances (for display while redirecting)
       const fetchGrievances = async () => {
         try {
-          // Replace with actual API call
+          // For now, use mock data - actual API call would go here
           // const response = await api.get('/grievances');
           // setGrievances(response.data);
 
-          // Mock data for now
+          // Mock data for display
           setGrievances([
             {
               id: '1',
@@ -62,22 +81,40 @@ export default function DashboardPage() {
 
       fetchGrievances();
     }
-  }, [user, loading, router]);
+  }, [user, loading, router, shouldRedirect]);
 
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500 dark:border-indigo-400"></div>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500 dark:border-indigo-400 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-400">Loading...</p>
+        </div>
       </div>
     );
   }
 
+  if (shouldRedirect) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500 dark:border-indigo-400 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-400">Redirecting to your dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return null;
+  }
+
   const getStatusBadge = (status: string) => {
     const statusClasses = {
-      pending: 'bg-yellow-100 text-yellow-800',
-      in_progress: 'bg-blue-100 text-blue-800',
-      resolved: 'bg-green-100 text-green-800',
-      rejected: 'bg-red-100 text-red-800',
+      pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
+      in_progress: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+      resolved: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+      rejected: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
     };
 
     const statusText = {
@@ -89,7 +126,7 @@ export default function DashboardPage() {
 
     return (
       <span
-        className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusClasses[status as keyof typeof statusClasses] || 'bg-gray-100 text-gray-800'
+        className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusClasses[status as keyof typeof statusClasses] || 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'
           }`}
       >
         {statusText[status as keyof typeof statusText] || status}

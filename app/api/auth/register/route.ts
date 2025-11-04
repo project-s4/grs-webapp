@@ -25,10 +25,36 @@ export async function POST(request: NextRequest) {
       if (contentType.includes('application/json')) {
         try {
           const data = JSON.parse(responseText);
+          
+          // Handle different error response formats
+          let errorMessage = 'Registration failed. Please try again.';
+          
+          if (Array.isArray(data)) {
+            // Pydantic validation errors - array of errors
+            errorMessage = data.map((err: any) => {
+              const field = err.loc?.join('.') || 'field';
+              return `${field}: ${err.msg || err.message || 'Validation error'}`;
+            }).join(', ');
+          } else if (Array.isArray(data.detail)) {
+            // FastAPI validation errors - detail is an array
+            errorMessage = data.detail.map((err: any) => {
+              const field = err.loc?.join('.') || 'field';
+              return `${field}: ${err.msg || err.message || 'Validation error'}`;
+            }).join(', ');
+          } else if (typeof data.detail === 'string') {
+            // FastAPI error detail as string
+            errorMessage = data.detail;
+          } else if (data.message) {
+            errorMessage = data.message;
+          } else if (data.error) {
+            errorMessage = data.error;
+          }
+          
           return NextResponse.json(
             { 
-              error: data?.detail || data?.error || 'REGISTER_ERROR', 
-              message: data?.detail || data?.message || data?.error || 'Registration failed' 
+              error: 'REGISTER_ERROR', 
+              message: errorMessage,
+              details: data
             },
             { status: response.status }
           );

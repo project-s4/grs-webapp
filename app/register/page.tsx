@@ -63,12 +63,27 @@ export default function RegisterPage() {
 
   const selectedRole = watch('role');
 
+  // Helper function to validate UUID format
+  const isValidUUID = (str: string): boolean => {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    return uuidRegex.test(str);
+  };
+
   useEffect(() => {
     const fetchDepartments = async () => {
       try {
         setLoadingDepartments(true);
         const departmentList = await departmentService.getDepartments();
+        
+        // Normalize department IDs - ensure we have UUIDs
+        // If backend returns numeric IDs, we'll need to fetch UUIDs separately
+        // For now, use the IDs as returned (assuming backend returns UUIDs)
         setDepartments(departmentList);
+        
+        // Log department IDs for debugging
+        if (departmentList.length > 0) {
+          console.log('Fetched departments:', departmentList.map(d => ({ id: d.id, name: d.name, isUUID: isValidUUID(d.id) })));
+        }
       } catch (error) {
         console.error('Failed to fetch departments:', error);
         toast.error('Failed to load departments');
@@ -80,17 +95,72 @@ export default function RegisterPage() {
     fetchDepartments();
   }, []);
 
+  // Helper function to fetch department UUID from backend if we only have numeric ID
+  const fetchDepartmentUUID = async (numericId: string): Promise<string | null> => {
+    try {
+      // Try to fetch department by numeric ID to get its UUID
+      const dept = await departmentService.getDepartmentById(numericId);
+      if (dept && dept.id && isValidUUID(dept.id)) {
+        return dept.id;
+      }
+      // If the department ID is already a UUID, return it
+      if (dept && dept.id) {
+        return dept.id;
+      }
+    } catch (error) {
+      console.error('Failed to fetch department UUID:', error);
+    }
+    return null;
+  };
+
   const onSubmit: SubmitHandler<RegisterFormData> = async (data) => {
     try {
+      // If department_id is provided, ensure it's a UUID string
+      let departmentId: string | undefined = undefined;
+      
+      if (data.department_id) {
+        // Check if it's already a UUID string
+        if (isValidUUID(data.department_id)) {
+          departmentId = data.department_id;
+        } else {
+          // If it's not a UUID, find the department from our list
+          const selectedDept = departments.find(dept => dept.id === data.department_id);
+          
+          if (selectedDept) {
+            // Check if the department ID from our list is a UUID
+            if (isValidUUID(selectedDept.id)) {
+              departmentId = selectedDept.id;
+            } else {
+              // Backend returned numeric ID, try to fetch UUID from backend
+              console.log('Department ID is numeric, fetching UUID from backend...');
+              const uuid = await fetchDepartmentUUID(selectedDept.id);
+              
+              if (uuid) {
+                departmentId = uuid;
+              } else {
+                // If we can't get UUID, the backend might accept numeric ID
+                // But based on error, it expects UUID, so show error
+                toast.error('Unable to resolve department UUID. Please refresh the page and try again.');
+                return;
+              }
+            }
+          } else {
+            toast.error('Invalid department selected. Please try again.');
+            return;
+          }
+        }
+      }
+
       const registerData = {
         name: data.name,
         email: data.email,
         phone: data.phone,
         password: data.password,
         role: data.role || 'citizen',
-        ...(data.department_id && { department_id: parseInt(data.department_id) }),
+        // Send department_id only if it's a valid UUID string
+        ...(departmentId && { department_id: departmentId }),
       };
-      
+
       // Call the registration API directly
       const response = await fetch('/api/auth/register', {
         method: 'POST',
@@ -101,7 +171,7 @@ export default function RegisterPage() {
       });
 
       const result = await response.json();
-      
+
       console.log('Registration response:', { ok: response.ok, status: response.status, result });
 
       if (response.ok) {
@@ -109,23 +179,43 @@ export default function RegisterPage() {
         router.push('/login');
       } else {
         // Show detailed error message from the API
-        const errorMessage = result.message || result.details || result.error || 'Registration failed. Please try again.';
-        console.error('Registration error:', errorMessage);
+        let errorMessage = 'Registration failed. Please try again.';
+
+        // Handle different error response formats
+        if (result.message) {
+          errorMessage = result.message;
+        } else if (result.details) {
+          // Handle Pydantic validation errors
+          if (Array.isArray(result.details)) {
+            errorMessage = result.details.map((err: any) => {
+              const field = err.loc?.join('.') || 'field';
+              return `${field}: ${err.msg || err.message || 'Validation error'}`;
+            }).join(', ');
+          } else if (typeof result.details === 'string') {
+            errorMessage = result.details;
+          } else {
+            errorMessage = JSON.stringify(result.details);
+          }
+        } else if (result.error) {
+          errorMessage = result.error;
+        }
+
+        console.error('Registration error:', result);
         toast.error(errorMessage, {
-          duration: 5000, // Show for 5 seconds
+          duration: 6000, // Show for 6 seconds to read longer messages
           position: 'top-center',
         });
       }
     } catch (error: any) {
       console.error('Registration failed:', error);
       let errorMessage = 'An unexpected error occurred. Please try again later.';
-      
+
       if (error instanceof TypeError && error.message.includes('fetch')) {
         errorMessage = 'Network error. Please check your internet connection.';
       } else if (error.message) {
         errorMessage = error.message;
       }
-      
+
       toast.error(errorMessage, {
         duration: 5000,
         position: 'top-center',
