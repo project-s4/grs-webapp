@@ -3,18 +3,18 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { formatDate, getStatusBadge } from '@/src/lib/utils';
-import { 
-  ArrowLeft, 
-  Clock, 
-  User, 
-  Mail, 
-  Phone, 
-  Building, 
-  Tag, 
-  Calendar, 
-  FileText, 
-  MessageCircle, 
-  Paperclip, 
+import {
+  ArrowLeft,
+  Clock,
+  User,
+  Mail,
+  Phone,
+  Building,
+  Tag,
+  Calendar,
+  FileText,
+  MessageCircle,
+  Paperclip,
   MapPin,
   Eye,
   Star,
@@ -83,49 +83,123 @@ interface Complaint {
   };
 }
 
-export default function TrackComplaintPage({ params }: { params: { trackingId: string } }) {
-  // This is required for static export
-  if (!params.trackingId) {
-    return <div>Invalid tracking ID</div>;
-  }
+export default function TrackComplaintPage({ params }: { params: { trackingId: string } | Promise<{ trackingId: string }> }) {
+  const [resolvedParams, setResolvedParams] = useState<{ trackingId: string } | null>(null);
   const [complaint, setComplaint] = useState<Complaint | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  // Handle async params in Next.js 14 App Router
   useEffect(() => {
+    const resolveParams = async () => {
+      try {
+        // In Next.js 14, params can be a Promise
+        const resolved = params instanceof Promise ? await params : params;
+        if (resolved?.trackingId) {
+          setResolvedParams(resolved);
+        } else {
+          // Fallback: try to get from URL if params not available
+          if (typeof window !== 'undefined') {
+            const pathParts = window.location.pathname.split('/');
+            const trackingIdFromUrl = pathParts[pathParts.length - 1];
+            if (trackingIdFromUrl && trackingIdFromUrl !== 'track') {
+              setResolvedParams({ trackingId: trackingIdFromUrl });
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Error resolving params:', err);
+        // Fallback: try to get from URL
+        if (typeof window !== 'undefined') {
+          const pathParts = window.location.pathname.split('/');
+          const trackingIdFromUrl = pathParts[pathParts.length - 1];
+          if (trackingIdFromUrl && trackingIdFromUrl !== 'track') {
+            setResolvedParams({ trackingId: trackingIdFromUrl });
+          }
+        }
+      }
+    };
+    resolveParams();
+  }, [params]);
+
+  useEffect(() => {
+    if (!resolvedParams?.trackingId) {
+      setError('Invalid tracking ID');
+      setLoading(false);
+      return;
+    }
+
     const fetchComplaint = async () => {
       try {
+        setLoading(true);
+        setError('');
+
         // Get auth token from localStorage
-        const token = localStorage.getItem('token');
-        
+        const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+
         const headers: HeadersInit = {
           'Content-Type': 'application/json'
         };
-        
+
         // Add Authorization header if token exists
         if (token) {
           headers['Authorization'] = `Bearer ${token}`;
         }
-        
-        const response = await fetch(`/api/complaints/track?trackingId=${params.trackingId}`, {
+
+        const trackingId = resolvedParams.trackingId;
+        const response = await fetch(`/api/complaints/track?trackingId=${encodeURIComponent(trackingId)}`, {
           headers
         });
+
         const data = await response.json();
 
         if (response.ok) {
-          setComplaint(data.complaint);
+          // Normalize response data - handle different response structures
+          const complaintData = data.complaint || data;
+
+          // Normalize field names (tracking_id vs trackingId)
+          const normalizedComplaint: Complaint = {
+            ...complaintData,
+            trackingId: complaintData.trackingId || complaintData.tracking_id || complaintData.reference_no || trackingId,
+            _id: complaintData._id || complaintData.id || complaintData.id?.toString(),
+            name: complaintData.name || complaintData.user_name || complaintData.title || 'Unknown',
+            email: complaintData.email || complaintData.user_email || '',
+            phone: complaintData.phone || '',
+            department: complaintData.department || complaintData.department_name || 'Unknown',
+            category: complaintData.category || 'General',
+            subCategory: complaintData.subCategory || complaintData.sub_category,
+            description: complaintData.description || '',
+            status: complaintData.status || 'Pending',
+            priority: complaintData.priority || 'Medium',
+            dateFiled: complaintData.dateFiled || complaintData.created_at || complaintData.date_filed,
+            updatedAt: complaintData.updatedAt || complaintData.updated_at,
+            adminReply: complaintData.adminReply || complaintData.admin_reply || complaintData.notes,
+            reply: complaintData.reply,
+            viewCount: complaintData.viewCount || complaintData.view_count,
+            satisfaction: complaintData.satisfaction,
+            estimatedResolution: complaintData.estimatedResolution || complaintData.estimated_resolution,
+            statusHistory: complaintData.statusHistory || complaintData.status_history,
+            comments: complaintData.comments,
+            attachments: complaintData.attachments,
+            location: complaintData.location,
+            resolution: complaintData.resolution
+          };
+
+          setComplaint(normalizedComplaint);
         } else {
-          setError(data.error || 'Failed to fetch complaint');
+          const errorMessage = data.message || data.error || data.detail || 'Failed to fetch complaint';
+          setError(errorMessage);
         }
-      } catch (err) {
-        setError('Network error. Please try again.');
+      } catch (err: any) {
+        console.error('Error fetching complaint:', err);
+        setError(err.message || 'Network error. Please check your connection and try again.');
       } finally {
         setLoading(false);
       }
     };
 
     fetchComplaint();
-  }, [params.trackingId]);
+  }, [resolvedParams]);
 
   if (loading) {
     return (
@@ -138,7 +212,7 @@ export default function TrackComplaintPage({ params }: { params: { trackingId: s
     );
   }
 
-  if (error || !complaint) {
+  if (error || (!loading && !complaint)) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-8 text-center">
@@ -146,12 +220,24 @@ export default function TrackComplaintPage({ params }: { params: { trackingId: s
             <AlertCircle className="h-8 w-8 text-red-600 dark:text-red-400" />
           </div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-            Complaint Not Found
+            {error ? 'Error Loading Complaint' : 'Complaint Not Found'}
           </h1>
-          <p className="text-gray-600 dark:text-gray-400 mb-6">
+          <p className="text-gray-600 dark:text-gray-400 mb-4">
             {error || 'The complaint with this tracking ID could not be found.'}
           </p>
+          {resolvedParams?.trackingId && (
+            <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-3 mb-6">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Tracking ID:</p>
+              <p className="text-sm font-mono font-semibold text-gray-900 dark:text-white">
+                {resolvedParams.trackingId}
+              </p>
+            </div>
+          )}
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <Link href="/track" className="btn-secondary">
+              <ArrowLeft className="w-4 h-4 mr-2 inline" />
+              Try Another ID
+            </Link>
             <Link href="/" className="btn-secondary">
               <ArrowLeft className="w-4 h-4 mr-2 inline" />
               Back to Home
@@ -203,12 +289,11 @@ export default function TrackComplaintPage({ params }: { params: { trackingId: s
                 <span className={`inline-flex items-center px-3 py-1.5 rounded-md text-sm font-medium ${getStatusBadge(complaint.status)}`}>
                   {complaint.status}
                 </span>
-                <span className={`inline-flex items-center px-3 py-1.5 rounded-md text-sm font-medium ${
-                  complaint.priority === 'Critical' ? 'text-red-700 bg-red-100 dark:bg-red-900/30 dark:text-red-400' :
+                <span className={`inline-flex items-center px-3 py-1.5 rounded-md text-sm font-medium ${complaint.priority === 'Critical' ? 'text-red-700 bg-red-100 dark:bg-red-900/30 dark:text-red-400' :
                   complaint.priority === 'High' ? 'text-orange-700 bg-orange-100 dark:bg-orange-900/30 dark:text-orange-400' :
-                  complaint.priority === 'Medium' ? 'text-yellow-700 bg-yellow-100 dark:bg-yellow-900/30 dark:text-yellow-400' :
-                  'text-green-700 bg-green-100 dark:bg-green-900/30 dark:text-green-400'
-                }`}>
+                    complaint.priority === 'Medium' ? 'text-yellow-700 bg-yellow-100 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                      'text-green-700 bg-green-100 dark:bg-green-900/30 dark:text-green-400'
+                  }`}>
                   {complaint.priority} Priority
                 </span>
               </div>
@@ -392,11 +477,10 @@ export default function TrackComplaintPage({ params }: { params: { trackingId: s
                       <p className="text-sm text-gray-500 dark:text-gray-400">{formatDate(new Date(comment.createdAt))}</p>
                     </div>
                     <p className="text-gray-700 dark:text-gray-300">{comment.text}</p>
-                    <span className={`inline-block px-2 py-1 text-xs rounded-full mt-2 ${
-                      comment.authorType === 'admin' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400' :
+                    <span className={`inline-block px-2 py-1 text-xs rounded-full mt-2 ${comment.authorType === 'admin' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400' :
                       comment.authorType === 'system' ? 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300' :
-                      'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400'
-                    }`}>
+                        'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400'
+                      }`}>
                       {comment.authorType}
                     </span>
                   </div>
