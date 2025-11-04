@@ -3,8 +3,8 @@
 import { useState, useEffect } from 'react';
 import { formatDate, getStatusBadge, categories } from '@/src/lib/utils';
 import { DashboardLayout, StatCard, EmptyState } from '@/components/dashboard';
-import { 
-  FileText, Home, Inbox, Clock, CheckCircle, Activity, Users, 
+import {
+  FileText, Home, Inbox, Clock, CheckCircle, Activity, Users,
   AlertCircle, Download, Filter, Search, Grid, List as ListIcon,
   BarChart3, UserPlus, MoreHorizontal, ChevronLeft, ChevronRight, Eye
 } from 'lucide-react';
@@ -80,7 +80,7 @@ export default function AllComplaintsPage() {
         window.location.href = '/admin/login';
         return;
       }
-      
+
       setAdmin(payload);
       loadInitialData();
     } catch (error) {
@@ -182,9 +182,9 @@ export default function AllComplaintsPage() {
   const filteredComplaints = complaints.filter(c => {
     if (filters.assigned === 'assigned' && !c.assigned_to) return false;
     if (filters.assigned === 'unassigned' && c.assigned_to) return false;
-    if (filters.search && !c.tracking_id.toLowerCase().includes(filters.search.toLowerCase()) && 
-        !c.description.toLowerCase().includes(filters.search.toLowerCase()) &&
-        !(c.title || '').toLowerCase().includes(filters.search.toLowerCase())) return false;
+    if (filters.search && !c.tracking_id.toLowerCase().includes(filters.search.toLowerCase()) &&
+      !c.description.toLowerCase().includes(filters.search.toLowerCase()) &&
+      !(c.title || '').toLowerCase().includes(filters.search.toLowerCase())) return false;
     return true;
   });
 
@@ -386,7 +386,7 @@ export default function AllComplaintsPage() {
                       )}
                     </div>
                     <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
-                      <Link href={`/grievances/${complaint.id || complaint._id}`}>
+                      <Link href={`/track/${complaint.tracking_id}`}>
                         <button className="w-full btn-ghost btn-sm text-xs">
                           <Eye className="w-3 h-3 mr-1" />
                           View Details
@@ -478,7 +478,7 @@ export default function AllComplaintsPage() {
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300">
-                          {complaint.assigned_to ? 
+                          {complaint.assigned_to ?
                             departmentUsers.find(u => u.id === complaint.assigned_to)?.name || 'Unknown'
                             : <span className="text-orange-600 dark:text-orange-400">Unassigned</span>}
                         </td>
@@ -486,7 +486,7 @@ export default function AllComplaintsPage() {
                           {formatDate(new Date(complaint.created_at))}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <Link href={`/grievances/${complaint.id || complaint._id}`}>
+                          <Link href={`/track/${complaint.tracking_id}`}>
                             <button className="text-primary-600 dark:text-primary-400 hover:text-primary-900 dark:hover:text-primary-300 inline-flex items-center">
                               <Eye className="w-4 h-4 mr-1" />
                               View
@@ -498,7 +498,7 @@ export default function AllComplaintsPage() {
                   </tbody>
                 </table>
               </div>
-              
+
               {/* Pagination */}
               {totalPages > 1 && (
                 <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">

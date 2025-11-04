@@ -33,7 +33,7 @@ export default function DashboardPage() {
           // Replace with actual API call
           // const response = await api.get('/grievances');
           // setGrievances(response.data);
-          
+
           // Mock data for now
           setGrievances([
             {
@@ -89,9 +89,8 @@ export default function DashboardPage() {
 
     return (
       <span
-        className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-          statusClasses[status as keyof typeof statusClasses] || 'bg-gray-100 text-gray-800'
-        }`}
+        className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusClasses[status as keyof typeof statusClasses] || 'bg-gray-100 text-gray-800'
+          }`}
       >
         {statusText[status as keyof typeof statusText] || status}
       </span>
@@ -129,7 +128,7 @@ export default function DashboardPage() {
             <div className="flex justify-between items-center">
               <h1 className="text-3xl font-bold text-gray-900 dark:text-white">My Grievances</h1>
               <Link
-                href="/grievances/new"
+                href="/complaint"
                 className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
               >
                 New Grievance
@@ -165,7 +164,7 @@ export default function DashboardPage() {
                 </p>
                 <div className="mt-6">
                   <Link
-                    href="/grievances/new"
+                    href="/complaint"
                     className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                   >
                     <svg
@@ -191,7 +190,7 @@ export default function DashboardPage() {
                   {grievances.map((grievance) => (
                     <li key={grievance.id}>
                       <Link
-                        href={`/grievances/${grievance.id}`}
+                        href={`/track/${grievance.id}`}
                         className="block hover:bg-gray-50 dark:hover:bg-gray-700"
                       >
                         <div className="px-4 py-4 sm:px-6">
