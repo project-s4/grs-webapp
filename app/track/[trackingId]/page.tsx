@@ -252,6 +252,11 @@ export default function TrackComplaintPage({ params }: { params: { trackingId: s
     );
   }
 
+  // TypeScript guard: ensure complaint is not null before rendering
+  if (!complaint) {
+    return null;
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header */}

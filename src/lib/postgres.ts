@@ -13,6 +13,12 @@ const pool = new Pool({
 
 // Test connection and create tables if they don't exist
 export async function initDatabase() {
+  // Skip database initialization during build time
+  if (process.env.NEXT_PHASE === 'phase-production-build' || process.env.NODE_ENV === 'production' && process.env.NEXT_RUNTIME === undefined) {
+    console.log('Skipping database initialization during build');
+    return;
+  }
+  
   try {
     const client = await pool.connect();
     console.log('Connected to PostgreSQL database');
@@ -134,6 +140,11 @@ export async function getClient() {
 
 // Execute a query
 export async function query(text: string, params?: any[]) {
+  // Skip database queries during build time
+  if (process.env.NEXT_PHASE === 'phase-production-build') {
+    throw new Error('Database queries are not available during build time');
+  }
+  
   const client = await pool.connect();
   try {
     const result = await client.query(text, params);
@@ -144,6 +155,16 @@ export async function query(text: string, params?: any[]) {
 }
 
 // Initialize database on module load
-initDatabase().catch(console.error);
+// Only initialize database at runtime, not during build
+// Check if we're in a build phase
+if (typeof process !== 'undefined' && process.env.NEXT_PHASE !== 'phase-production-build') {
+  // Initialize database asynchronously, don't block
+  initDatabase().catch((err) => {
+    // Only log errors if not in build phase
+    if (process.env.NEXT_PHASE !== 'phase-production-build') {
+      console.error('Database initialization error:', err);
+    }
+  });
+}
 
 export default pool;
