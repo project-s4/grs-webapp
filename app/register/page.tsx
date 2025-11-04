@@ -74,12 +74,12 @@ export default function RegisterPage() {
       try {
         setLoadingDepartments(true);
         const departmentList = await departmentService.getDepartments();
-        
+
         // Normalize department IDs - ensure we have UUIDs
         // If backend returns numeric IDs, we'll need to fetch UUIDs separately
         // For now, use the IDs as returned (assuming backend returns UUIDs)
         setDepartments(departmentList);
-        
+
         // Log department IDs for debugging
         if (departmentList.length > 0) {
           console.log('Fetched departments:', departmentList.map(d => ({ id: d.id, name: d.name, isUUID: isValidUUID(d.id) })));
@@ -91,7 +91,7 @@ export default function RegisterPage() {
         setLoadingDepartments(false);
       }
     };
-    
+
     fetchDepartments();
   }, []);
 
@@ -117,7 +117,7 @@ export default function RegisterPage() {
     try {
       // If department_id is provided, ensure it's a UUID string
       let departmentId: string | undefined = undefined;
-      
+
       if (data.department_id) {
         // Check if it's already a UUID string
         if (isValidUUID(data.department_id)) {
@@ -125,7 +125,7 @@ export default function RegisterPage() {
         } else {
           // If it's not a UUID, find the department from our list
           const selectedDept = departments.find(dept => dept.id === data.department_id);
-          
+
           if (selectedDept) {
             // Check if the department ID from our list is a UUID
             if (isValidUUID(selectedDept.id)) {
@@ -134,7 +134,7 @@ export default function RegisterPage() {
               // Backend returned numeric ID, try to fetch UUID from backend
               console.log('Department ID is numeric, fetching UUID from backend...');
               const uuid = await fetchDepartmentUUID(selectedDept.id);
-              
+
               if (uuid) {
                 departmentId = uuid;
               } else {
@@ -160,6 +160,14 @@ export default function RegisterPage() {
         // Send department_id only if it's a valid UUID string
         ...(departmentId && { department_id: departmentId }),
       };
+
+      // Log the data being sent for debugging
+      console.log('Registration data:', {
+        ...registerData,
+        password: '***', // Don't log password
+        department_id: departmentId || 'none',
+        department_id_isUUID: departmentId ? isValidUUID(departmentId) : false
+      });
 
       // Call the registration API directly
       const response = await fetch('/api/auth/register', {
