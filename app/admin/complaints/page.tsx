@@ -35,6 +35,7 @@ interface Complaint {
 interface DepartmentUser {
   id: string;
   name: string;
+  email?: string | null;
   department_id: string | null;
 }
 
