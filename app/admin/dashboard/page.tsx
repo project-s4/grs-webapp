@@ -19,29 +19,29 @@ interface Complaint {
   category: string;
   priority?: string;
   status: string;
-  department_id?: number;
+  department_id?: string;
   department_name?: string;
   user_name?: string;
   user_email?: string;
   email?: string;
   phone?: string;
   location?: string;
-  assigned_to?: number;
+  assigned_to?: string | null;
   created_at: string;
   updated_at: string;
 }
 
 interface DepartmentUser {
-  id: number;
+  id: string;
   name: string;
-  department_id: number;
+  department_id: string | null;
 }
 
 export default function AdminDashboardPage() {
   const [admin, setAdmin] = useState<any>(null);
   const [complaints, setComplaints] = useState<Complaint[]>([]);
   const [loading, setLoading] = useState(true);
-  const [departments, setDepartments] = useState<{ id: number; name: string }[]>([]);
+  const [departments, setDepartments] = useState<{ id: string; name: string }[]>([]);
   const [departmentUsers, setDepartmentUsers] = useState<DepartmentUser[]>([]);
   const [viewMode, setViewMode] = useState<'board' | 'list'>('list');
   const [filters, setFilters] = useState({
@@ -61,6 +61,14 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     initializePage();
   }, []);
+
+  useEffect(() => {
+    if (!admin) return;
+    const interval = setInterval(() => {
+      fetchComplaints();
+    }, 15000);
+    return () => clearInterval(interval);
+  }, [admin, filters]);
 
   const initializePage = () => {
     const token = localStorage.getItem('token');
@@ -120,6 +128,7 @@ export default function AdminDashboardPage() {
         throw new Error('Failed to load department users');
       }
       const data = await response.json();
+      console.log('Department users response:', data);
       if (Array.isArray(data)) setDepartmentUsers(data);
     } catch (error: any) {
       console.error('Error:', error);
@@ -185,7 +194,7 @@ export default function AdminDashboardPage() {
 
   const openAssignModal = (complaint: Complaint) => {
     setSelectedComplaint(complaint);
-    setAssignedUser(complaint.assigned_to?.toString() || '');
+    setAssignedUser(complaint.assigned_to || '');
     setShowAssignModal(true);
   };
 
@@ -205,7 +214,7 @@ export default function AdminDashboardPage() {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          assigned_to: parseInt(assignedUser)
+          assigned_to: assignedUser
         }),
       });
 
@@ -600,8 +609,10 @@ export default function AdminDashboardPage() {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300">
-                        {complaint.assigned_to ? 
-                          departmentUsers.find(u => u.id === complaint.assigned_to)?.name || 'Unknown'
+                        {complaint.assigned_to ?
+                          departmentUsers.find(u => u.id === complaint.assigned_to)?.name ||
+                          departmentUsers.find(u => u.id === complaint.assigned_to)?.email ||
+                          'Unknown'
                           : <span className="text-orange-600 dark:text-orange-400">Unassigned</span>}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300">
@@ -665,20 +676,28 @@ export default function AdminDashboardPage() {
                 className="form-select w-full"
               >
                 <option value="">Select a user...</option>
-                {departmentUsers
-                  .filter(user => {
-                    // Find department by name and match with user's department_id
-                    const dept = departments.find(d => d.name === selectedComplaint.department_name);
-                    return dept ? user.department_id === dept.id : false;
-                  })
-                  .map((user) => (
-                    <option key={user.id} value={user.id.toString()}>
-                      {user.name}
+                {(() => {
+                  const complaintDeptId =
+                    selectedComplaint.department_id ||
+                    departments.find(d => d.name === selectedComplaint.department_name)?.id ||
+                    null;
+
+                  const matchingUsers = departmentUsers.filter(user => {
+                    if (!complaintDeptId) return true;
+                    return user.department_id === complaintDeptId || !user.department_id;
+                  });
+
+                  const usersToShow = matchingUsers.length > 0 ? matchingUsers : departmentUsers;
+
+                  return usersToShow.map((user) => (
+                    <option key={user.id} value={user.id}>
+                      {user.name || user.email || 'Unnamed User'}
                     </option>
-                  ))}
+                  ));
+                })()}
               </select>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                Showing users from {selectedComplaint.department_name || 'No Department'} department
+                Showing users from {selectedComplaint.department_name || 'all'} department
               </p>
             </div>
 

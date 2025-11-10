@@ -11,7 +11,7 @@ import {
 
 interface Complaint {
   _id: string;
-  id: number;
+  id: string;
   trackingId: string;
   title: string;
   description: string;
@@ -23,17 +23,17 @@ interface Complaint {
   dateFiled: string;
   adminReply?: string;
   updatedAt: string;
-  user_id: number;
-  department_id: number;
-  assigned_to: number;
+  user_id: string | null;
+  department_id: string | null;
+  assigned_to: string | null;
 }
 
 interface DepartmentUser {
-  id: number;
+  id: string;
   name: string;
   email: string;
   role: string;
-  department_id: number;
+  department_id: string | null;
 }
 
 export default function DepartmentDashboardPage() {
@@ -41,7 +41,7 @@ export default function DepartmentDashboardPage() {
   const [complaints, setComplaints] = useState<Complaint[]>([]);
   const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, pages: 0 });
   const [loading, setLoading] = useState(true);
-  const [departments, setDepartments] = useState<{ id: number; name: string }[]>([]);
+  const [departments, setDepartments] = useState<{ id: string; name: string }[]>([]);
   const [filters, setFilters] = useState({ status: '', category: '' });
   const [selectedComplaint, setSelectedComplaint] = useState<Complaint | null>(null);
   const [showModal, setShowModal] = useState(false);

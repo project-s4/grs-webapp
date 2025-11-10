@@ -20,29 +20,29 @@ interface Complaint {
   category: string;
   priority?: string;
   status: string;
-  department_id?: number;
+  department_id?: string;
   department_name?: string;
   user_name?: string;
   user_email?: string;
   email?: string;
   phone?: string;
   location?: string;
-  assigned_to?: number;
+  assigned_to?: string | null;
   created_at: string;
   updated_at: string;
 }
 
 interface DepartmentUser {
-  id: number;
+  id: string;
   name: string;
-  department_id: number;
+  department_id: string | null;
 }
 
 export default function AllComplaintsPage() {
   const [admin, setAdmin] = useState<any>(null);
   const [complaints, setComplaints] = useState<Complaint[]>([]);
   const [loading, setLoading] = useState(true);
-  const [departments, setDepartments] = useState<{ id: number; name: string }[]>([]);
+const [departments, setDepartments] = useState<{ id: string; name: string }[]>([]);
   const [departmentUsers, setDepartmentUsers] = useState<DepartmentUser[]>([]);
   const [viewMode, setViewMode] = useState<'board' | 'list'>('list');
   const [filters, setFilters] = useState({
@@ -141,7 +141,7 @@ export default function AllComplaintsPage() {
       if (filters.status) queryParams.append('status', filters.status);
       if (filters.department) {
         const dept = departments.find(d => d.name === filters.department);
-        if (dept) queryParams.append('department_id', dept.id.toString());
+        if (dept) queryParams.append('department_id', dept.id);
       }
       if (filters.category) queryParams.append('category', filters.category);
 

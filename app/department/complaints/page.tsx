@@ -5,13 +5,13 @@ import Link from 'next/link';
 import { formatDate, getStatusBadge, categories } from '@/src/lib/utils';
 import { DashboardLayout, StatCard, FilterBar, EmptyState } from '@/components/dashboard';
 import { toast } from 'react-hot-toast';
-import { 
-  FileText, Home, Inbox, Clock, CheckCircle, Activity, List, Edit, X, Search
+import {
+  FileText, Home, Inbox, Clock, CheckCircle, Activity, List, Edit, Eye, X, Search
 } from 'lucide-react';
 
 interface Complaint {
   _id: string;
-  id: number;
+  id: string;
   trackingId: string;
   title: string;
   description: string;
@@ -23,17 +23,17 @@ interface Complaint {
   dateFiled: string;
   adminReply?: string;
   updatedAt: string;
-  user_id: number;
-  department_id: number;
-  assigned_to: number;
+  user_id: string | null;
+  department_id: string | null;
+  assigned_to: string | null;
 }
 
 interface DepartmentUser {
-  id: number;
+  id: string;
   name: string;
   email: string;
   role: string;
-  department_id: number;
+  department_id: string | null;
 }
 
 export default function DepartmentComplaintsPage() {
@@ -41,10 +41,11 @@ export default function DepartmentComplaintsPage() {
   const [complaints, setComplaints] = useState<Complaint[]>([]);
   const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, pages: 0 });
   const [loading, setLoading] = useState(true);
-  const [departments, setDepartments] = useState<{ id: number; name: string }[]>([]);
+  const [departments, setDepartments] = useState<{ id: string; name: string }[]>([]);
   const [filters, setFilters] = useState({ status: '', category: '', search: '' });
   const [selectedComplaint, setSelectedComplaint] = useState<Complaint | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [updateData, setUpdateData] = useState({ status: '', adminReply: '' });
   const [updating, setUpdating] = useState(false);
 
@@ -116,7 +117,7 @@ export default function DepartmentComplaintsPage() {
       const params = new URLSearchParams({
         page: pagination.page.toString(),
         limit: pagination.limit.toString(),
-        department_id: currentUser.department_id.toString(),
+        ...(currentUser.department_id ? { department_id: currentUser.department_id } : {}),
       });
 
       if (filters.status) {
@@ -139,7 +140,7 @@ export default function DepartmentComplaintsPage() {
         // Transform data to match expected format
         const transformedComplaints = (data.complaints || []).map((c: any) => ({
           _id: c.id || c._id,
-          id: c.id || parseInt(c.id),
+          id: c.id || c._id || '',
           trackingId: c.tracking_id || c.reference_no || c.trackingId,
           title: c.title || '',
           description: c.description || '',
@@ -151,9 +152,9 @@ export default function DepartmentComplaintsPage() {
           dateFiled: c.created_at || c.dateFiled || '',
           adminReply: c.admin_reply || c.adminReply || '',
           updatedAt: c.updated_at || c.created_at || '',
-          user_id: c.user_id,
-          department_id: c.department_id,
-          assigned_to: c.assigned_to,
+          user_id: c.user_id || null,
+          department_id: c.department_id || null,
+          assigned_to: c.assigned_to || null,
         }));
         
         setComplaints(transformedComplaints);
@@ -179,6 +180,11 @@ export default function DepartmentComplaintsPage() {
   const handleFilterChange = (filterType: string, value: string) => {
     setFilters(prev => ({ ...prev, [filterType]: value }));
     setPagination(prev => ({ ...prev, page: 1 })); // Reset to first page on filter change
+  };
+
+  const openDetailsModal = (complaint: Complaint) => {
+    setSelectedComplaint(complaint);
+    setShowDetailsModal(true);
   };
 
   const handleUpdateComplaint = async () => {
@@ -427,12 +433,20 @@ export default function DepartmentComplaintsPage() {
                         {complaint.assigned_to ? 'Assigned' : 'Unassigned'}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium flex items-center gap-3">
+                      <button
+                        onClick={() => openDetailsModal(complaint)}
+                        className="inline-flex items-center text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
+                      >
+                        <Eye className="w-5 h-5 mr-1" />
+                        View
+                      </button>
                       <button
                         onClick={() => openUpdateModal(complaint)}
-                        className="text-primary-600 hover:text-primary-900 dark:text-primary-400 dark:hover:text-primary-300"
+                        className="inline-flex items-center text-primary-600 hover:text-primary-900 dark:text-primary-400 dark:hover:text-primary-300"
                       >
-                        <Edit className="w-5 h-5" />
+                        <Edit className="w-5 h-5 mr-1" />
+                        Update
                       </button>
                     </td>
                   </tr>
@@ -537,7 +551,91 @@ export default function DepartmentComplaintsPage() {
           </div>
         </div>
       )}
-    </DashboardLayout>
-  );
+
+  {/* Details Modal */}
+  {showDetailsModal && selectedComplaint && (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-3xl w-full mx-4">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white">Complaint Details</h2>
+          <button
+            onClick={() => {
+              setShowDetailsModal(false);
+              setSelectedComplaint(null);
+            }}
+            className="text-gray-500 hover:text-gray-700"
+          >
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+
+        <div className="space-y-4 text-sm">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <p className="text-xs uppercase text-gray-500 dark:text-gray-400">Tracking ID</p>
+              <p className="font-medium text-gray-900 dark:text-white">{selectedComplaint.trackingId}</p>
+            </div>
+            <div>
+              <p className="text-xs uppercase text-gray-500 dark:text-gray-400">Filed On</p>
+              <p className="text-gray-900 dark:text-white">{formatDate(new Date(selectedComplaint.dateFiled))}</p>
+            </div>
+            <div>
+              <p className="text-xs uppercase text-gray-500 dark:text-gray-400">Status</p>
+              <p className="text-gray-900 dark:text-white">{selectedComplaint.status}</p>
+            </div>
+            <div>
+              <p className="text-xs uppercase text-gray-500 dark:text-gray-400">Category</p>
+              <p className="text-gray-900 dark:text-white">{selectedComplaint.category}</p>
+            </div>
+          </div>
+
+          <div>
+            <p className="text-xs uppercase text-gray-500 dark:text-gray-400">Title</p>
+            <p className="font-semibold text-gray-900 dark:text-white">{selectedComplaint.title}</p>
+          </div>
+
+          <div>
+            <p className="text-xs uppercase text-gray-500 dark:text-gray-400">Description</p>
+            <p className="text-gray-700 dark:text-gray-200 whitespace-pre-line">{selectedComplaint.description}</p>
+          </div>
+
+          {selectedComplaint.adminReply && (
+            <div>
+              <p className="text-xs uppercase text-gray-500 dark:text-gray-400">Admin Notes</p>
+              <p className="text-gray-700 dark:text-gray-200 whitespace-pre-line">{selectedComplaint.adminReply}</p>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <p className="text-xs uppercase text-gray-500 dark:text-gray-400">Complainant</p>
+              <p className="text-gray-900 dark:text-white">{selectedComplaint.name}</p>
+              {selectedComplaint.email && (
+                <p className="text-xs text-gray-600 dark:text-gray-300">{selectedComplaint.email}</p>
+              )}
+            </div>
+            <div>
+              <p className="text-xs uppercase text-gray-500 dark:text-gray-400">Department</p>
+              <p className="text-gray-900 dark:text-white">{selectedComplaint.department}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-6 flex justify-end">
+          <button
+            onClick={() => {
+              setShowDetailsModal(false);
+              setSelectedComplaint(null);
+            }}
+            className="px-4 py-2 text-sm bg-primary-600 text-white rounded hover:bg-primary-700"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  )}
+</DashboardLayout>
+);
 }
 

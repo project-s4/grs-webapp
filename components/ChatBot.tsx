@@ -190,32 +190,34 @@ export default function ChatBot() {
                         }`}
                       >
                         <div
-                          className={`max-w-xs rounded-2xl px-4 py-2 ${
+                        className={`w-full max-w-[16rem] sm:max-w-[20rem] rounded-2xl px-3.5 py-3 ${
                             message.role === 'user'
-                              ? 'bg-blue-600 text-white'
-                              : 'bg-white text-gray-800 border border-gray-200'
+                              ? 'bg-primary-600 text-white shadow-lg'
+                              : 'bg-white/95 dark:bg-slate-800/90 text-gray-800 dark:text-gray-100 border border-primary-100/40 dark:border-slate-700/60 shadow-sm'
                           }`}
                         >
                           <div className={`flex items-start space-x-2 ${
                             message.role === 'user' ? 'flex-row-reverse space-x-reverse' : ''
                           }`}>
                             <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
-                              message.role === 'user' ? 'bg-blue-500' : 'bg-gray-100'
+                              message.role === 'user'
+                                ? 'bg-primary-500 text-white shadow'
+                                : 'bg-primary-100 text-primary-700 dark:bg-slate-700 dark:text-primary-100 shadow'
                             }`}>
                               {message.role === 'user' ? (
-                                <User size={14} className="text-white" />
+                                <User size={14} className="text-current" />
                               ) : (
-                                <Bot size={14} className="text-gray-600" />
+                                <Bot size={14} className="text-current" />
                               )}
                             </div>
                             <div className="flex-1">
                               <div className={`text-sm ${
-                                message.role === 'user' ? 'text-white' : 'text-gray-800'
+                                message.role === 'user' ? 'text-white' : 'text-gray-800 dark:text-gray-100'
                               }`}>
                                 <ReactMarkdown>{message.content}</ReactMarkdown>
                               </div>
                               <div className={`text-xs mt-1 ${
-                                message.role === 'user' ? 'text-blue-200' : 'text-gray-500'
+                                message.role === 'user' ? 'text-blue-100' : 'text-gray-500 dark:text-gray-400'
                               }`}>
                                 {formatTime(message.timestamp)}
                               </div>
@@ -232,13 +234,13 @@ export default function ChatBot() {
                         animate={{ opacity: 1, y: 0 }}
                         className="flex justify-start"
                       >
-                        <div className="bg-white text-gray-800 border border-gray-200 rounded-2xl px-4 py-3">
+                        <div className="bg-white/95 dark:bg-slate-800/90 text-gray-800 dark:text-gray-100 border border-primary-100/40 dark:border-slate-700/60 rounded-2xl px-4 py-3 shadow-sm">
                           <div className="flex items-center space-x-2">
-                            <Bot size={14} className="text-gray-600" />
+                            <Bot size={14} className="text-primary-600 dark:text-primary-300" />
                             <div className="flex space-x-1">
-                              <div className="w-2 h-2 bg-gray-400 rounded-full typing-dot"></div>
-                              <div className="w-2 h-2 bg-gray-400 rounded-full typing-dot"></div>
-                              <div className="w-2 h-2 bg-gray-400 rounded-full typing-dot"></div>
+                              <div className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full typing-dot"></div>
+                              <div className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full typing-dot"></div>
+                              <div className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full typing-dot"></div>
                             </div>
                           </div>
                         </div>
@@ -248,7 +250,7 @@ export default function ChatBot() {
                   </div>
 
                   {/* Input */}
-                  <div className="p-4 bg-white border-t border-gray-200">
+                  <div className="p-4 bg-white/95 dark:bg-slate-900/85 border-t border-primary-100/40 dark:border-slate-800">       
                     <div className="flex space-x-2">
                       <input
                         ref={inputRef}
@@ -268,7 +270,7 @@ export default function ChatBot() {
                         <Send size={16} />
                       </button>
                     </div>
-                    <p className="text-xs text-gray-500 mt-2 text-center">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center">
                       Powered by AI • For grievance portal assistance
                     </p>
                   </div>

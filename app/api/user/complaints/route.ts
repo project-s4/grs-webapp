@@ -55,17 +55,31 @@ export async function GET(request: NextRequest) {
 
     // Build query with filters - join with departments table for department name
     // Search by both user_id (for authenticated complaints) and email (for anonymous complaints)
-    let queryText = `
-      SELECT c.*, d.name as department_name, d.code as department_code
-      FROM complaints c
-      LEFT JOIN departments d ON c.department_id = d.id
-      WHERE (c.email = $1 ${userId ? `OR c.user_id = $2` : ''})
-    `;
     const queryParams: any[] = [email];
+    let filterClauses = [
+      `u.email = $1`,
+      `c.complaint_metadata->>'email' = $1`
+    ];
+
     if (userId) {
       queryParams.push(userId);
+      filterClauses.push(`c.user_id = $${queryParams.length}`);
     }
-    let paramIndex = userId ? 3 : 2;
+
+    let queryText = `
+      SELECT 
+        c.*, 
+        d.name as department_name, 
+        d.code as department_code,
+        u.email as user_email,
+        u.phone as user_phone
+      FROM complaints c
+      LEFT JOIN departments d ON c.department_id = d.id
+      LEFT JOIN users u ON c.user_id = u.id
+      WHERE (${filterClauses.join(' OR ')})
+    `;
+
+    let paramIndex = queryParams.length + 1;
 
     if (status) {
       queryText += ` AND c.status = $${paramIndex}`;
@@ -92,12 +106,25 @@ export async function GET(request: NextRequest) {
     const result = await query(queryText, queryParams);
 
     // Get total count for pagination
-    let countQuery = `SELECT COUNT(*) FROM complaints c WHERE (c.email = $1 ${userId ? `OR c.user_id = $2` : ''})`;
     const countParams: any[] = [email];
+    let countFilterClauses = [
+      `u.email = $1`,
+      `c.complaint_metadata->>'email' = $1`
+    ];
+
     if (userId) {
       countParams.push(userId);
+      countFilterClauses.push(`c.user_id = $${countParams.length}`);
     }
-    let countParamIndex = userId ? 3 : 2;
+
+    let countQuery = `
+      SELECT COUNT(*) 
+      FROM complaints c
+      LEFT JOIN users u ON c.user_id = u.id
+      WHERE (${countFilterClauses.join(' OR ')})
+    `;
+
+    let countParamIndex = countParams.length + 1;
 
     if (status) {
       countQuery += ` AND c.status = $${countParamIndex}`;
@@ -122,24 +149,35 @@ export async function GET(request: NextRequest) {
     console.log(`Found ${result.rows.length} complaints out of ${total} total`);
 
     // Format complaints to match frontend expectations
-    const complaints = result.rows.map(complaint => ({
-      _id: complaint.id,
-      tracking_id: complaint.tracking_id, // Match dashboard expectation
-      name: complaint.title,
-      email: complaint.email,
-      phone: complaint.phone,
-      department: complaint.department_name || 'Unknown Department',
-      category: complaint.category || 'General',
-      subCategory: complaint.sub_category,
-      description: complaint.description,
-      status: complaint.status || 'Pending',
-      priority: complaint.priority || 'Medium',
-      dateFiled: complaint.created_at,
-      updatedAt: complaint.updated_at,
-      viewCount: 0, // Default values for compatibility
-      adminReply: complaint.notes,
-      reply: complaint.notes, // Alternative field name
-    }));
+    const complaints = result.rows.map(complaint => {
+      let metadata: any = complaint.complaint_metadata || {};
+      if (typeof metadata === 'string') {
+        try {
+          metadata = JSON.parse(metadata);
+        } catch {
+          metadata = {};
+        }
+      }
+
+      return {
+        _id: complaint.id,
+        tracking_id: complaint.tracking_id, // Match dashboard expectation      
+        name: complaint.title,
+        email: complaint.user_email || metadata.email || null,
+        phone: complaint.user_phone || metadata.phone || null,
+        department: complaint.department_name || 'Unknown Department',
+        category: complaint.category || 'General',
+        subCategory: complaint.subcategory || complaint.sub_category,
+        description: complaint.description,
+        status: complaint.status || 'Pending',
+        priority: complaint.priority || metadata.priority || 'Medium',
+        dateFiled: complaint.created_at,
+        updatedAt: complaint.updated_at || complaint.created_at,
+        viewCount: 0, // Default values for compatibility
+        adminReply: complaint.admin_reply || metadata.adminReply || metadata.reply || null,
+        reply: complaint.admin_reply || metadata.reply || null, // Alternative field name
+      };
+    });
 
     console.log('Returning complaints:', complaints.map(c => ({ id: c._id, tracking_id: c.tracking_id, status: c.status })));
 

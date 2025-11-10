@@ -7,7 +7,8 @@ const pool = new Pool({
   host: process.env.POSTGRES_HOST || 'localhost',
   database: process.env.POSTGRES_DB || 'grievance_portal',
   password: process.env.POSTGRES_PASSWORD || 'password',
-  port: parseInt(process.env.POSTGRES_PORT || '5433'),
+  port: parseInt(process.env.POSTGRES_PORT || '5432'),
+  ssl: { rejectUnauthorized: false },
 });
 
 export async function PATCH(
@@ -69,12 +70,13 @@ export async function PATCH(
 
     const { assigned_to } = await request.json();
     const complaintId = params.id;
+    const assignedTo = assigned_to ? String(assigned_to).trim() : null;
 
     // Validate assigned_to is a valid department user if provided
-    if (assigned_to) {
+    if (assignedTo) {
       const userCheck = await pool.query(
-        'SELECT id, role FROM users WHERE id = $1 AND role IN ($2, $3)',
-        [assigned_to, 'department', 'department_admin']
+        'SELECT id, role FROM users WHERE id = $1::uuid AND role IN ($2, $3)',
+        [assignedTo, 'department', 'department_admin']
       );
       
       if (userCheck.rows.length === 0) {
@@ -93,31 +95,28 @@ export async function PATCH(
       }
     }
 
-    // Update the complaint assignment
-    // Try to parse as integer first, if that fails, treat as tracking_id
-    const numericId = parseInt(complaintId);
-    let updateQuery, queryParams;
-    
-    if (!isNaN(numericId)) {
-      // It's a numeric ID
+    const isTrackingId = complaintId.startsWith('COMP-');
+    let updateQuery: string;
+    let queryParams: any[];
+
+    if (isTrackingId) {
       updateQuery = `
-        UPDATE complaints 
-        SET assigned_to = $1, updated_at = NOW()
-        WHERE id = $2
-        RETURNING *
-      `;
-      queryParams = [assigned_to || null, numericId];
-    } else {
-      // It's a tracking_id
-      updateQuery = `
-        UPDATE complaints 
-        SET assigned_to = $1, updated_at = NOW()
+        UPDATE complaints
+        SET assigned_to = $1::uuid, updated_at = NOW()
         WHERE tracking_id = $2
         RETURNING *
       `;
-      queryParams = [assigned_to || null, complaintId];
+      queryParams = [assignedTo, complaintId];
+    } else {
+      updateQuery = `
+        UPDATE complaints
+        SET assigned_to = $1::uuid, updated_at = NOW()
+        WHERE id = $2::uuid
+        RETURNING *
+      `;
+      queryParams = [assignedTo, complaintId];
     }
-    
+
     const result = await pool.query(updateQuery, queryParams);
 
     if (result.rows.length === 0) {
