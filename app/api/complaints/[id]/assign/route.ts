@@ -68,80 +68,67 @@ export async function PATCH(
       return errorResponse;
     }
 
-    const { assigned_to } = await request.json();
-    const complaintId = params.id;
-    const assignedTo = assigned_to ? String(assigned_to).trim() : null;
+      const { assigned_to } = await request.json();
+      const complaintId = params.id;
+      const assignedTo = assigned_to ? String(assigned_to).trim() : null;
 
-    // Validate assigned_to is a valid department user if provided
-    if (assignedTo) {
-      const userCheck = await pool.query(
-        'SELECT id, role FROM users WHERE id = $1::uuid AND role IN ($2, $3)',
-        [assignedTo, 'department', 'department_admin']
-      );
-      
-      if (userCheck.rows.length === 0) {
+      // Validate assigned_to is a valid department user if provided
+      if (assignedTo) {
+        const userCheck = await pool.query(
+          'SELECT id, role FROM users WHERE id = $1::uuid AND role IN ($2, $3)',
+          [assignedTo, 'department', 'department_admin']
+        );
+        
+        if (userCheck.rows.length === 0) {
+          const errorResponse = NextResponse.json(
+            { 
+              error: 'INVALID_USER',
+              message: 'Invalid department user selected.',
+              details: 'The selected user does not exist or is not a department user. Please select a valid department user.'
+            },
+            { status: 400 }
+          );
+          errorResponse.headers.set('Access-Control-Allow-Origin', '*');
+          errorResponse.headers.set('Access-Control-Allow-Methods', 'PATCH, OPTIONS');
+          errorResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+          return errorResponse;
+        }
+      }
+
+      const isUuid = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(complaintId);
+      const updateQuery = `
+        UPDATE complaints
+        SET assigned_to = $1::uuid, updated_at = NOW()
+        WHERE ${isUuid ? 'id = $2::uuid' : 'tracking_id = $2'}
+        RETURNING *
+      `;
+      const queryParams: any[] = [assignedTo, complaintId];
+
+      const result = await pool.query(updateQuery, queryParams);
+
+      if (result.rows.length === 0) {
         const errorResponse = NextResponse.json(
           { 
-            error: 'INVALID_USER',
-            message: 'Invalid department user selected.',
-            details: 'The selected user does not exist or is not a department user. Please select a valid department user.'
+            error: 'NOT_FOUND',
+            message: 'Complaint not found.',
+            details: 'The complaint you are trying to assign does not exist or may have been deleted.'
           },
-          { status: 400 }
+          { status: 404 }
         );
         errorResponse.headers.set('Access-Control-Allow-Origin', '*');
         errorResponse.headers.set('Access-Control-Allow-Methods', 'PATCH, OPTIONS');
         errorResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
         return errorResponse;
       }
-    }
 
-    const isTrackingId = complaintId.startsWith('COMP-');
-    let updateQuery: string;
-    let queryParams: any[];
-
-    if (isTrackingId) {
-      updateQuery = `
-        UPDATE complaints
-        SET assigned_to = $1::uuid, updated_at = NOW()
-        WHERE tracking_id = $2
-        RETURNING *
-      `;
-      queryParams = [assignedTo, complaintId];
-    } else {
-      updateQuery = `
-        UPDATE complaints
-        SET assigned_to = $1::uuid, updated_at = NOW()
-        WHERE id = $2::uuid
-        RETURNING *
-      `;
-      queryParams = [assignedTo, complaintId];
-    }
-
-    const result = await pool.query(updateQuery, queryParams);
-
-    if (result.rows.length === 0) {
-      const errorResponse = NextResponse.json(
-        { 
-          error: 'NOT_FOUND',
-          message: 'Complaint not found.',
-          details: 'The complaint you are trying to assign does not exist or may have been deleted.'
-        },
-        { status: 404 }
-      );
-      errorResponse.headers.set('Access-Control-Allow-Origin', '*');
-      errorResponse.headers.set('Access-Control-Allow-Methods', 'PATCH, OPTIONS');
-      errorResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-      return errorResponse;
-    }
-
-    const response = NextResponse.json({
-      message: 'Complaint assigned successfully',
-      complaint: result.rows[0]
-    });
-    response.headers.set('Access-Control-Allow-Origin', '*');
-    response.headers.set('Access-Control-Allow-Methods', 'PATCH, OPTIONS');
-    response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-    return response;
+      const response = NextResponse.json({
+        message: 'Complaint assigned successfully',
+        complaint: result.rows[0]
+      });
+      response.headers.set('Access-Control-Allow-Origin', '*');
+      response.headers.set('Access-Control-Allow-Methods', 'PATCH, OPTIONS');
+      response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+      return response;
 
   } catch (error: any) {
     console.error('Error assigning complaint:', error);

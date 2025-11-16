@@ -21,8 +21,9 @@ export const authService = {
       password: credentials.password,
     });
 
-    if (response.data.token) {
-      localStorage.setItem('token', response.data.token);
+    const token = response.data?.access_token || response.data?.token;
+    if (token) {
+      localStorage.setItem('token', token);
     }
 
     return response.data;
