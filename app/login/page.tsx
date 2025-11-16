@@ -82,9 +82,6 @@ export default function LoginPage() {
     try {
 
       // Removed alert for cleaner flow
-      console.log('=== LOGIN START ===');
-      console.log('Login attempt for:', data.email);
-
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -92,8 +89,6 @@ export default function LoginPage() {
       });
 
       const result = await response.json();
-
-      console.log('Login response:', { ok: response.ok, status: response.status, result });
 
       if (!response.ok) {
         // Show detailed error message from the API
@@ -106,10 +101,6 @@ export default function LoginPage() {
         return;
       }
 
-      console.log('Full result:', result);
-      console.log('Token:', result.access_token || result.token);
-      console.log('User:', result.user);
-
       // Store token
       const token = result.access_token || result.token;
       if (token) {
@@ -118,7 +109,6 @@ export default function LoginPage() {
 
         // Get user role from response
         const userRole = result.user?.role || result.role;
-        console.log('User role:', userRole);
 
         // Determine redirect destination
         let redirectPath = '/user/dashboard'; // Default for citizens
@@ -153,8 +143,6 @@ export default function LoginPage() {
             redirectPath = '/user/dashboard';
           }
         }
-
-        console.log('Redirecting to:', redirectPath);
 
         // Small delay to show success toast before redirect
         setTimeout(() => {
