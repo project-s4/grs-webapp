@@ -67,6 +67,26 @@ export async function GET(request: NextRequest) {
   // Helper function to handle successful authentication
   async function handleSuccessfulAuth(session: any, requestUrl: URL) {
     try {
+      // Store session in cookies so client can access it
+      const response = NextResponse.redirect(new URL('/auth/callback', requestUrl.origin));
+      
+      // Set session in httpOnly cookie for security
+      response.cookies.set('sb-access-token', session.access_token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 60 * 60 * 24 * 7, // 7 days
+        path: '/',
+      });
+      
+      response.cookies.set('sb-refresh-token', session.refresh_token || '', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 60 * 60 * 24 * 30, // 30 days
+        path: '/',
+      });
+
       // Check if user profile exists in backend
       const verifyResponse = await fetch(`${requestUrl.origin}/api/auth/verify`, {
         method: 'POST',
@@ -77,10 +97,14 @@ export async function GET(request: NextRequest) {
       });
 
       if (verifyResponse.status === 404) {
-        // User profile doesn't exist - redirect to profile creation
-        return NextResponse.redirect(
-          new URL(`/register?supabase_user_id=${session.user.id}&email=${encodeURIComponent(session.user.email || '')}`, requestUrl.origin)
-        );
+        // User profile doesn't exist - redirect to profile creation with session data
+        const registerUrl = new URL('/register', requestUrl.origin);
+        registerUrl.searchParams.set('supabase_user_id', session.user.id);
+        if (session.user.email) {
+          registerUrl.searchParams.set('email', session.user.email);
+        }
+        registerUrl.searchParams.set('token', session.access_token); // Pass token for client-side
+        return NextResponse.redirect(registerUrl);
       } else if (verifyResponse.ok) {
         // User profile exists - get role and redirect
         const userData = await verifyResponse.json();
@@ -92,14 +116,22 @@ export async function GET(request: NextRequest) {
           redirectPath = '/department/dashboard';
         }
 
-        return NextResponse.redirect(new URL(redirectPath, requestUrl.origin));
+        // Redirect with token in query for client-side to set session
+        const dashboardUrl = new URL(redirectPath, requestUrl.origin);
+        dashboardUrl.searchParams.set('token', session.access_token);
+        dashboardUrl.searchParams.set('refresh', session.refresh_token || '');
+        return NextResponse.redirect(dashboardUrl);
       } else {
         console.error('Error verifying user:', await verifyResponse.text());
-        return NextResponse.redirect(new URL('/login?error=verification_failed', requestUrl.origin));
+        const loginUrl = new URL('/login', requestUrl.origin);
+        loginUrl.searchParams.set('error', 'verification_failed');
+        return NextResponse.redirect(loginUrl);
       }
     } catch (error) {
       console.error('Error handling successful auth:', error);
-      return NextResponse.redirect(new URL('/login?error=verification_failed', requestUrl.origin));
+      const loginUrl = new URL('/login', requestUrl.origin);
+      loginUrl.searchParams.set('error', 'verification_failed');
+      return NextResponse.redirect(loginUrl);
     }
   }
 
@@ -123,7 +155,38 @@ export async function GET(request: NextRequest) {
       }
 
       if (data?.session) {
-        return await handleSuccessfulAuth(data.session, requestUrl);
+        // Instead of redirecting immediately, redirect to client-side callback page
+        // This allows the client to properly set the session
+        const callbackUrl = new URL('/auth/callback', requestUrl.origin);
+        callbackUrl.searchParams.set('token', data.session.access_token);
+        callbackUrl.searchParams.set('refresh', data.session.refresh_token || '');
+        
+        // Also check user profile and pass that info
+        try {
+          const verifyResponse = await fetch(`${requestUrl.origin}/api/auth/verify`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ token: data.session.access_token }),
+          });
+
+          if (verifyResponse.status === 404) {
+            // User profile doesn't exist - pass info for registration
+            callbackUrl.searchParams.set('supabase_user_id', data.session.user.id);
+            if (data.session.user.email) {
+              callbackUrl.searchParams.set('email', data.session.user.email);
+            }
+            callbackUrl.searchParams.set('action', 'register');
+          } else if (verifyResponse.ok) {
+            // User profile exists
+            callbackUrl.searchParams.set('action', 'redirect');
+          }
+        } catch (error) {
+          console.error('Error pre-verifying user:', error);
+        }
+        
+        return NextResponse.redirect(callbackUrl);
       }
     } catch (error) {
       console.error('OAuth callback error:', error);
