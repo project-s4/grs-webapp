@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Building, Envelope, Lock, ArrowLeft, CheckCircle, BoxArrowInRight } from 'lucide-react';
+import { Building, Mail, Lock, ArrowLeft, CheckCircle, LogIn } from 'lucide-react';
 
 interface Department {
   id: string;
@@ -360,7 +360,7 @@ export default function DepartmentPortalPage({ params }: { params: { dept: strin
                 <div className="mb-6 relative">
                   <label htmlFor="email" className="block mb-2 font-semibold text-gray-700">Email</label>
                   <div className="relative">
-                    <Envelope className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Mail className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                     <input
                       type="email"
                       id="email"
@@ -391,7 +391,7 @@ export default function DepartmentPortalPage({ params }: { params: { dept: strin
                   type="submit"
                   className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold text-lg flex items-center justify-center gap-2 hover:bg-blue-700 transition-all hover:-translate-y-1 hover:shadow-lg"
                 >
-                  <BoxArrowInRight className="w-5 h-5" />
+                  <LogIn className="w-5 h-5" />
                   <span>Login</span>
                 </button>
               </form>
