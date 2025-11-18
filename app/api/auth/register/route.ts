@@ -69,12 +69,26 @@ export async function POST(request: NextRequest) {
       } else {
         // Non-JSON error response (likely HTML or plain text)
         console.error('Backend returned non-JSON error:', responseText.substring(0, 200));
+        
+        // Provide more helpful error messages based on common backend issues
+        let errorMessage = 'Registration failed. Please try again.';
+        if (responseText.includes('Internal Server Error')) {
+          errorMessage = 'Backend service error. This may be due to a database connection issue. Please try again in a moment.';
+        } else if (responseText.includes('connection') || responseText.includes('database')) {
+          errorMessage = 'Database connection error. Please try again later.';
+        } else if (responseText.length > 0) {
+          // Try to extract meaningful error from HTML/text response
+          const textPreview = responseText.substring(0, 200).replace(/<[^>]*>/g, '').trim();
+          if (textPreview.length > 0) {
+            errorMessage = textPreview;
+          }
+        }
+        
         return NextResponse.json(
           { 
             error: 'REGISTER_ERROR', 
-            message: responseText.includes('Internal Server Error') 
-              ? 'Internal server error. Please try again later.' 
-              : responseText.substring(0, 200) || 'Registration failed' 
+            message: errorMessage,
+            details: response.status === 500 ? 'Backend returned 500 error. Check backend logs for details.' : undefined
           },
           { status: response.status }
         );
@@ -113,14 +127,26 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('Register error:', error);
     
-    // Handle network errors, parsing errors, etc.
-    const errorMessage = error.message || 'Failed to register user';
+    // Handle network errors, parsing errors, backend unavailable, etc.
+    let errorMessage = 'Failed to register user';
+    
+    if (error.message) {
+      if (error.message.includes('fetch')) {
+        errorMessage = 'Unable to connect to backend server. Please check if the backend is running.';
+      } else if (error.message.includes('JSON')) {
+        errorMessage = 'Server returned an invalid response. Please try again.';
+      } else if (error.message.includes('timeout') || error.message.includes('ECONNREFUSED')) {
+        errorMessage = 'Backend server is not responding. Please try again later.';
+      } else {
+        errorMessage = error.message;
+      }
+    }
+    
     const errorResponse = NextResponse.json(
       { 
         error: 'REGISTER_ERROR', 
-        message: errorMessage.includes('JSON') 
-          ? 'Server returned an invalid response. Please try again.' 
-          : errorMessage
+        message: errorMessage,
+        details: process.env.NODE_ENV === 'development' ? error.stack : undefined
       },
       { status: 500 }
     );
