@@ -2,11 +2,13 @@ import { Pool } from 'pg';
 import { randomUUID } from 'crypto';
 
 // Supabase PostgreSQL connection configuration
+// IMPORTANT: Use pooler URL for Supabase (IPv4-compatible)
+// Pooler requires username format: postgres.[PROJECT_REF]
 const pool = new Pool({
-  user: process.env.POSTGRES_USER || 'postgres',
-  host: process.env.POSTGRES_HOST || 'db.hwlngdpexkgbtrzatfox.supabase.co',
+  user: process.env.POSTGRES_USER || 'postgres.hwlngdpexkgbtrzatfox',
+  host: process.env.POSTGRES_HOST || 'aws-1-ap-south-1.pooler.supabase.com',
   database: process.env.POSTGRES_DB || 'postgres',
-  password: process.env.POSTGRES_PASSWORD || 'password',
+  password: process.env.POSTGRES_PASSWORD || 'oe9erG8UJMNoAXr7',
   port: parseInt(process.env.POSTGRES_PORT || '5432'),
   ssl: { rejectUnauthorized: false }
 });

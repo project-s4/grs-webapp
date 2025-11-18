@@ -42,17 +42,21 @@ function ComplaintPageContent() {
           setDepartments(departmentData);
         } else {
           console.warn('No departments returned or not an array:', departmentData);
-          toast.error('No departments available');
+          // Don't show error toast - just log it, page can still work
+          console.warn('Continuing without departments - user can still file complaint');
         }
       } catch (error: any) {
-        const errorMessage = error.message || 'Failed to load departments. Please refresh the page and try again.';
+        // Log error but don't block the page
         console.error('Error fetching departments:', error);
         console.error('Error details:', {
           message: error?.message,
           status: error?.status,
           data: error?.data
         });
-        toast.error(errorMessage);
+        // Show a warning but don't prevent page from loading
+        toast.error('Could not load departments. You can still file a complaint.', {
+          duration: 5000
+        });
       } finally {
         setLoading(false);
       }
@@ -615,7 +619,7 @@ function TextComplaintForm({ onSubmit, onCancel, departments }: { onSubmit: (dat
 
 export default function ComplaintPage() {
   return (
-    <AuthGuard requireAuth={true}>
+    <AuthGuard requireAuth={true} redirectTo="/login?redirect=/complaint">
       <ComplaintPageContent />
     </AuthGuard>
   );

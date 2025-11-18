@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { formatDate, getStatusBadge } from '@/src/lib/utils';
+import { StatusTimeline, ActivityFeed } from '@/components/tracking';
 import {
   ArrowLeft,
   Clock,
@@ -200,6 +201,115 @@ export default function TrackComplaintPage({ params }: { params: { trackingId: s
 
     fetchComplaint();
   }, [resolvedParams]);
+
+  // Transform complaint data into activity feed format
+  // Hooks must be called before any conditional returns
+  const activities = useMemo(() => {
+    if (!complaint) return [];
+    const activityList: Array<{
+      id: string;
+      type: 'status_change' | 'comment' | 'attachment' | 'assignment' | 'resolution';
+      title: string;
+      description?: string;
+      timestamp: string;
+      actor?: string;
+      actorType?: 'user' | 'admin' | 'department' | 'system';
+      metadata?: Record<string, any>;
+    }> = [];
+
+    // Add status history as activities
+    if (complaint.statusHistory && complaint.statusHistory.length > 0) {
+      complaint.statusHistory.forEach((status, index) => {
+        activityList.push({
+          id: `status-${index}`,
+          type: 'status_change',
+          title: `Status updated to "${status.status}"`,
+          timestamp: status.updatedAt || complaint.dateFiled,
+          actor: status.updatedBy || 'System',
+          actorType: status.updatedBy ? 'department' : 'system',
+          metadata: {
+            oldStatus: index > 0 ? complaint.statusHistory![index - 1].status : 'New',
+            newStatus: status.status
+          },
+          description: status.notes
+        });
+      });
+    } else {
+      // If no status history, add initial filing
+      activityList.push({
+        id: 'filed',
+        type: 'status_change',
+        title: 'Complaint filed',
+        timestamp: complaint.dateFiled || complaint.created_at || new Date().toISOString(),
+        actor: complaint.name || 'User',
+        actorType: 'user',
+        metadata: {
+          newStatus: complaint.status
+        }
+      });
+    }
+
+    // Add comments as activities
+    if (complaint.comments && complaint.comments.length > 0) {
+      complaint.comments.forEach((comment) => {
+        activityList.push({
+          id: comment._id || `comment-${comment.id}`,
+          type: 'comment',
+          title: 'New comment added',
+          description: comment.text || comment.message,
+          timestamp: comment.createdAt || comment.date || new Date().toISOString(),
+          actor: comment.author || 'Unknown',
+          actorType: comment.authorType === 'admin' ? 'admin' : 
+                     comment.authorType === 'department' ? 'department' : 'user'
+        });
+      });
+    }
+
+    // Add attachments as activities
+    if (complaint.attachments && complaint.attachments.length > 0) {
+      complaint.attachments.forEach((attachment, index) => {
+        activityList.push({
+          id: attachment._id || `attachment-${index}`,
+          type: 'attachment',
+          title: `Attachment added: ${attachment.originalName || attachment.name}`,
+          timestamp: attachment.uploadedAt || new Date().toISOString(),
+          actor: complaint.name || 'User',
+          actorType: 'user'
+        });
+      });
+    }
+
+    // Add resolution as activity
+    if (complaint.resolution) {
+      activityList.push({
+        id: 'resolution',
+        type: 'resolution',
+        title: 'Complaint resolved',
+        description: complaint.resolution.description,
+        timestamp: complaint.resolution.resolvedAt,
+        actor: complaint.resolution.resolvedBy,
+        actorType: 'department'
+      });
+    }
+
+    // Sort by timestamp (newest first)
+    return activityList.sort((a, b) => 
+      new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    );
+  }, [complaint]);
+
+  // Transform status history for timeline component
+  const timelineHistory = useMemo(() => {
+    if (!complaint?.statusHistory || complaint.statusHistory.length === 0) {
+      return [];
+    }
+    return complaint.statusHistory.map(status => ({
+      status: status.status,
+      date: status.updatedAt,
+      updatedBy: status.updatedBy,
+      notes: status.notes
+    }));
+  }, [complaint?.statusHistory]);
 
   if (loading) {
     return (
@@ -436,36 +546,15 @@ export default function TrackComplaintPage({ params }: { params: { trackingId: s
             </div>
           )}
 
-          {/* Status History */}
-          {complaint.statusHistory && complaint.statusHistory.length > 0 && (
-            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
-                <Clock className="w-5 h-5 mr-2 text-gray-500 dark:text-gray-400" />
-                Status History
-              </h3>
-              <div className="space-y-3">
-                {complaint.statusHistory.map((update, index) => (
-                  <div key={index} className="flex items-start space-x-3 p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
-                    <div className="flex-shrink-0">
-                      <div className="w-2 h-2 bg-primary-600 rounded-full mt-2"></div>
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between">
-                        <p className="font-medium text-gray-900 dark:text-white">{update.status}</p>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">{formatDate(new Date(update.updatedAt))}</p>
-                      </div>
-                      {update.updatedBy && (
-                        <p className="text-sm text-gray-600 dark:text-gray-400">Updated by: {update.updatedBy}</p>
-                      )}
-                      {update.notes && (
-                        <p className="text-sm text-gray-700 dark:text-gray-300 mt-1">{update.notes}</p>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          {/* Enhanced Status Timeline */}
+          <StatusTimeline
+            currentStatus={complaint.status}
+            statusHistory={timelineHistory}
+            estimatedResolution={complaint.estimatedResolution}
+          />
+
+          {/* Activity Feed */}
+          <ActivityFeed activities={activities} maxItems={10} />
 
           {/* Comments */}
           {complaint.comments && complaint.comments.length > 0 && (

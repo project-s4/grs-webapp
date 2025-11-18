@@ -6,7 +6,7 @@ import { formatDate, getStatusBadge, categories } from '@/src/lib/utils';
 import { DashboardLayout, StatCard, FilterBar, EmptyState } from '@/components/dashboard';
 import { toast } from 'react-hot-toast';
 import { 
-  FileText, Home, Inbox, Clock, CheckCircle, Activity, List, Edit, X
+  FileText, Home, Inbox, Clock, CheckCircle, Activity, List, Edit, Eye, X
 } from 'lucide-react';
 
 interface Complaint {
@@ -45,12 +45,25 @@ export default function DepartmentDashboardPage() {
   const [filters, setFilters] = useState({ status: '', category: '' });
   const [selectedComplaint, setSelectedComplaint] = useState<Complaint | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [updateData, setUpdateData] = useState({ status: '', adminReply: '' });
   const [updating, setUpdating] = useState(false);
 
   useEffect(() => {
     initializePage();
   }, []);
+
+  // Auto-refresh assigned complaints every 30 seconds
+  useEffect(() => {
+    if (!user) return;
+    
+    const interval = setInterval(() => {
+      console.log('[Department Dashboard] Auto-refreshing assigned complaints...');
+      fetchAssignedComplaints();
+    }, 30000); // Refresh every 30 seconds
+    
+    return () => clearInterval(interval);
+  }, [user]);
 
   const initializePage = () => {
     const token = localStorage.getItem('token');
@@ -61,13 +74,24 @@ export default function DepartmentDashboardPage() {
 
     try {
       const payload = JSON.parse(atob(token.split('.')[1]));
-      if (payload.role !== 'department' && payload.role !== 'department_admin') {
+      // Check for all department-related roles
+      if (payload.role !== 'department' && payload.role !== 'department_admin' && payload.role !== 'department_officer') {
         window.location.href = '/department/login';
         return;
       }
       
+      // Extract user ID - try multiple possible fields
+      const userId = payload.id || payload.user_id || payload.sub || payload.userId;
+      console.log('[Department Dashboard] JWT payload:', { 
+        id: userId, 
+        name: payload.name, 
+        email: payload.email, 
+        role: payload.role,
+        allFields: Object.keys(payload)
+      });
+      
       const userData = {
-        id: payload.id || payload.user_id,
+        id: userId,
         name: payload.name,
         email: payload.email,
         role: payload.role,
@@ -104,30 +128,90 @@ export default function DepartmentDashboardPage() {
 
   const fetchAssignedComplaints = async (userData?: DepartmentUser) => {
     const currentUser = userData || user;
-    if (!currentUser) return;
+    if (!currentUser) {
+      console.warn('[Department Dashboard] No user data available to fetch complaints');
+      return;
+    }
 
     try {
+      // Ensure user ID is in correct format (UUID string)
+      const userId = currentUser.id?.toString() || '';
+      console.log('[Department Dashboard] Fetching complaints assigned to user:', userId);
+      console.log('[Department Dashboard] User data:', { id: currentUser.id, name: currentUser.name, email: currentUser.email });
+      
       const params = new URLSearchParams({
         page: '1',
-        limit: '10',
-        assigned_to: currentUser.id.toString(),
+        limit: '50', // Increased limit to show more complaints
+        assigned_to: userId,
       });
 
       const token = localStorage.getItem('token');
-      const response = await fetch(`/api/complaints?${params}`, {
+      const url = `/api/complaints?${params}`;
+      console.log('[Department Dashboard] Fetching from:', url);
+      
+      const response = await fetch(url, {
         headers: {
           'Content-Type': 'application/json',
           ...(token && { Authorization: `Bearer ${token}` }),
         },
       });
+      
       const data = await response.json();
+      console.log('[Department Dashboard] Response status:', response.status);
+      console.log('[Department Dashboard] Complaints received:', data.complaints?.length || 0);
+      console.log('[Department Dashboard] Raw complaints data:', data.complaints);
 
       if (response.ok) {
-        setComplaints(data.complaints || []);
-        setPagination(data.pagination);
+        // Transform backend data to match frontend interface
+        const transformedComplaints = (data.complaints || []).map((complaint: any) => {
+          // Parse date safely
+          let dateFiled = '';
+          if (complaint.created_at) {
+            try {
+              const date = new Date(complaint.created_at);
+              dateFiled = isNaN(date.getTime()) ? '' : complaint.created_at;
+            } catch {
+              dateFiled = '';
+            }
+          }
+          
+          return {
+            _id: complaint.id || complaint._id,
+            id: complaint.id || complaint._id,
+            trackingId: complaint.tracking_id || complaint.reference_no || complaint.id?.substring(0, 8) || '',
+            title: complaint.title || '',
+            description: complaint.description || '',
+            name: complaint.user_name || complaint.name || 'Anonymous',
+            email: complaint.user_email || complaint.email || '',
+            department: complaint.department_name || complaint.department || '',
+            category: complaint.category || 'General',
+            status: complaint.status || 'Pending',
+            dateFiled: dateFiled || complaint.updated_at || new Date().toISOString(),
+            adminReply: complaint.admin_reply || '',
+            updatedAt: complaint.updated_at || complaint.created_at || new Date().toISOString(),
+            user_id: complaint.user_id || null,
+            department_id: complaint.department_id || null,
+            assigned_to: complaint.assigned_to || null,
+          };
+        });
+        
+        console.log('[Department Dashboard] Transformed complaints:', transformedComplaints);
+        
+        setComplaints(transformedComplaints);
+        setPagination(data.pagination || { page: 1, limit: 50, total: 0, pages: 0 });
+        
+        if (transformedComplaints.length > 0) {
+          console.log('[Department Dashboard] Successfully loaded', transformedComplaints.length, 'assigned complaints');
+        } else {
+          console.warn('[Department Dashboard] No complaints found assigned to user:', userId);
+        }
+      } else {
+        console.error('[Department Dashboard] Failed to fetch complaints:', data);
+        toast.error('Failed to load assigned complaints. Please refresh the page.');
       }
     } catch (error) {
-      console.error('Error fetching assigned complaints:', error);
+      console.error('[Department Dashboard] Error fetching assigned complaints:', error);
+      toast.error('Error loading complaints. Please try again.');
     }
   };
 
@@ -190,6 +274,11 @@ export default function DepartmentDashboardPage() {
     } finally {
       setUpdating(false);
     }
+  };
+
+  const openDetailsModal = (complaint: Complaint) => {
+    setSelectedComplaint(complaint);
+    setShowDetailsModal(true);
   };
 
   const openUpdateModal = (complaint: Complaint) => {
@@ -376,16 +465,27 @@ export default function DepartmentDashboardPage() {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300">
-                      {formatDate(new Date(complaint.dateFiled))}
+                      {complaint.dateFiled && complaint.dateFiled !== 'Invalid Date' 
+                        ? formatDate(new Date(complaint.dateFiled)) 
+                        : 'N/A'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <button
-                        onClick={() => openUpdateModal(complaint)}
-                        className="text-primary-600 dark:text-primary-400 hover:text-primary-900 dark:hover:text-primary-300 inline-flex items-center"
-                      >
-                        <Edit className="w-4 h-4 mr-1" />
-                        Update
-                      </button>
+                      <div className="flex items-center space-x-3">
+                        <button
+                          onClick={() => openDetailsModal(complaint)}
+                          className="text-primary-600 dark:text-primary-400 hover:text-primary-900 dark:hover:text-primary-300 inline-flex items-center"
+                        >
+                          <Eye className="w-4 h-4 mr-1" />
+                          View
+                        </button>
+                        <button
+                          onClick={() => openUpdateModal(complaint)}
+                          className="text-primary-600 dark:text-primary-400 hover:text-primary-900 dark:hover:text-primary-300 inline-flex items-center"
+                        >
+                          <Edit className="w-4 h-4 mr-1" />
+                          Update
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -454,6 +554,94 @@ export default function DepartmentDashboardPage() {
                 className="btn-primary disabled:opacity-50"
               >
                 {updating ? 'Updating...' : 'Update'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Details Modal */}
+      {showDetailsModal && selectedComplaint && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-3xl w-full mx-4">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white">Complaint Details</h2>
+              <button
+                onClick={() => {
+                  setShowDetailsModal(false);
+                  setSelectedComplaint(null);
+                }}
+                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="space-y-4 text-sm">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs uppercase text-gray-500 dark:text-gray-400">Tracking ID</p>
+                  <p className="font-medium text-gray-900 dark:text-white">{selectedComplaint.trackingId || 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase text-gray-500 dark:text-gray-400">Filed On</p>
+                  <p className="text-gray-900 dark:text-white">
+                    {selectedComplaint.dateFiled && selectedComplaint.dateFiled !== 'Invalid Date' 
+                      ? formatDate(new Date(selectedComplaint.dateFiled)) 
+                      : 'N/A'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase text-gray-500 dark:text-gray-400">Status</p>
+                  <p className="text-gray-900 dark:text-white">{selectedComplaint.status}</p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase text-gray-500 dark:text-gray-400">Category</p>
+                  <p className="text-gray-900 dark:text-white">{selectedComplaint.category}</p>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-xs uppercase text-gray-500 dark:text-gray-400">Title</p>
+                <p className="font-semibold text-gray-900 dark:text-white">{selectedComplaint.title}</p>
+              </div>
+
+              <div>
+                <p className="text-xs uppercase text-gray-500 dark:text-gray-400">Description</p>
+                <p className="text-gray-700 dark:text-gray-200 whitespace-pre-line">{selectedComplaint.description}</p>
+              </div>
+
+              {selectedComplaint.adminReply && (
+                <div>
+                  <p className="text-xs uppercase text-gray-500 dark:text-gray-400">Admin Notes</p>
+                  <p className="text-gray-700 dark:text-gray-200 whitespace-pre-line">{selectedComplaint.adminReply}</p>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs uppercase text-gray-500 dark:text-gray-400">Complainant</p>
+                  <p className="text-gray-900 dark:text-white">{selectedComplaint.name || 'Anonymous'}</p>
+                  {selectedComplaint.email && (
+                    <p className="text-xs text-gray-600 dark:text-gray-300">{selectedComplaint.email}</p>
+                  )}
+                </div>
+                <div>
+                  <p className="text-xs uppercase text-gray-500 dark:text-gray-400">Department</p>
+                  <p className="text-gray-900 dark:text-white">{selectedComplaint.department || 'N/A'}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={() => {
+                  setShowDetailsModal(false);
+                  setSelectedComplaint(null);
+                }}
+                className="px-4 py-2 text-sm bg-primary-600 text-white rounded hover:bg-primary-700"
+              >
+                Close
               </button>
             </div>
           </div>

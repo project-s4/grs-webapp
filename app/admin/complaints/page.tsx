@@ -6,7 +6,7 @@ import { DashboardLayout, StatCard, EmptyState } from '@/components/dashboard';
 import {
   FileText, Home, Inbox, Clock, CheckCircle, Activity, Users,
   AlertCircle, Download, Filter, Search, Grid, List as ListIcon,
-  BarChart3, UserPlus, MoreHorizontal, ChevronLeft, ChevronRight, Eye
+  BarChart3, UserPlus, MoreHorizontal, ChevronLeft, ChevronRight, Eye, X
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import Link from 'next/link';
@@ -57,6 +57,10 @@ const [departments, setDepartments] = useState<{ id: string; name: string }[]>([
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
   const [selectedComplaints, setSelectedComplaints] = useState<Set<string>>(new Set());
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [selectedComplaint, setSelectedComplaint] = useState<Complaint | null>(null);
+  const [assignedUser, setAssignedUser] = useState<string>('');
+  const [assigning, setAssigning] = useState(false);
 
   useEffect(() => {
     initializePage();
@@ -125,9 +129,18 @@ const [departments, setDepartments] = useState<{ id: string; name: string }[]>([
         throw new Error('Failed to load department users');
       }
       const data = await response.json();
-      if (Array.isArray(data)) setDepartmentUsers(data);
+      console.log('[Admin Complaints] Fetched department users:', data.length, data);
+      if (Array.isArray(data)) {
+        setDepartmentUsers(data);
+        if (data.length === 0) {
+          console.warn('[Admin Complaints] No department users found. Make sure users with role "department" or "department_admin" exist.');
+        }
+      } else {
+        console.error('[Admin Complaints] Invalid response format:', data);
+      }
     } catch (error: any) {
-      console.error('Error:', error);
+      console.error('[Admin Complaints] Error fetching department users:', error);
+      toast.error('Failed to load department users. Please refresh the page.');
     }
   };
 
@@ -193,6 +206,52 @@ const [departments, setDepartments] = useState<{ id: string; name: string }[]>([
     Pending: filteredComplaints.filter(c => c.status.toLowerCase() === 'pending'),
     'In Progress': filteredComplaints.filter(c => c.status.toLowerCase() === 'in progress'),
     Resolved: filteredComplaints.filter(c => c.status.toLowerCase() === 'resolved'),
+  };
+
+  const openAssignModal = (complaint: Complaint) => {
+    setSelectedComplaint(complaint);
+    setAssignedUser(complaint.assigned_to || '');
+    setShowAssignModal(true);
+  };
+
+  const handleAssignComplaint = async () => {
+    if (!selectedComplaint || !assignedUser) {
+      toast.error('Please select a user to assign');
+      return;
+    }
+
+    setAssigning(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/complaints/${selectedComplaint.id}/assign`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          assigned_to: assignedUser
+        }),
+      });
+
+      if (response.ok) {
+        toast.success('Complaint assigned successfully!');
+        setShowAssignModal(false);
+        setSelectedComplaint(null);
+        setAssignedUser('');
+        fetchComplaints(); // Refresh the list
+      } else {
+        const error = await response.json().catch(() => ({ message: 'Failed to assign complaint' }));
+        const errorMessage = error.message || error.error || 'Failed to assign complaint. Please try again.';
+        toast.error(errorMessage);
+      }
+    } catch (error: any) {
+      console.error('Error assigning complaint:', error);
+      const errorMessage = error.message || 'An unexpected error occurred while assigning the complaint. Please try again.';
+      toast.error(errorMessage);
+    } finally {
+      setAssigning(false);
+    }
   };
 
   const getPriorityColor = (priority?: string) => {
@@ -487,12 +546,32 @@ const [departments, setDepartments] = useState<{ id: string; name: string }[]>([
                           {formatDate(new Date(complaint.created_at))}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <Link href={`/track/${complaint.tracking_id}`}>
-                            <button className="text-primary-600 dark:text-primary-400 hover:text-primary-900 dark:hover:text-primary-300 inline-flex items-center">
-                              <Eye className="w-4 h-4 mr-1" />
-                              View
-                            </button>
-                          </Link>
+                          <div className="flex items-center space-x-2">
+                            <Link href={`/track/${complaint.tracking_id}`}>
+                              <button className="text-primary-600 dark:text-primary-400 hover:text-primary-900 dark:hover:text-primary-300 inline-flex items-center">
+                                <Eye className="w-4 h-4 mr-1" />
+                                View
+                              </button>
+                            </Link>
+                            {!complaint.assigned_to && (
+                              <button
+                                onClick={() => openAssignModal(complaint)}
+                                className="text-orange-600 dark:text-orange-400 hover:text-orange-900 dark:hover:text-orange-300 inline-flex items-center"
+                              >
+                                <UserPlus className="w-4 h-4 mr-1" />
+                                Assign
+                              </button>
+                            )}
+                            {complaint.assigned_to && (
+                              <button
+                                onClick={() => openAssignModal(complaint)}
+                                className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 inline-flex items-center"
+                              >
+                                <UserPlus className="w-4 h-4 mr-1" />
+                                Reassign
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -528,6 +607,98 @@ const [departments, setDepartments] = useState<{ id: string; name: string }[]>([
               )}
             </>
           )}
+        </div>
+      )}
+
+      {/* Assignment Modal */}
+      {showAssignModal && selectedComplaint && (
+        <div className="fixed inset-0 bg-gray-600 dark:bg-gray-900 bg-opacity-50 dark:bg-opacity-75 overflow-y-auto h-full w-full z-50 flex items-center justify-center">
+          <div className="relative p-5 border dark:border-gray-700 w-full max-w-md shadow-lg rounded-md bg-white dark:bg-gray-800">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+                Assign Complaint: {selectedComplaint.tracking_id}
+              </h3>
+              <button
+                onClick={() => {
+                  setShowAssignModal(false);
+                  setSelectedComplaint(null);
+                  setAssignedUser('');
+                }}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+              <h4 className="font-medium text-gray-900 dark:text-white mb-1">{selectedComplaint.title || selectedComplaint.description}</h4>
+              <p className="text-sm text-gray-600 dark:text-gray-300">
+                {selectedComplaint.department_name || 'No Department'} - {selectedComplaint.category || 'N/A'}
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">
+                {selectedComplaint.description}
+              </p>
+            </div>
+            
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Assign to Department User
+              </label>
+              <select
+                value={assignedUser}
+                onChange={(e) => setAssignedUser(e.target.value)}
+                className="form-select w-full"
+              >
+                <option value="">Select a user...</option>
+                {departmentUsers.length === 0 ? (
+                  <option value="" disabled>No department users available. Please create department users first.</option>
+                ) : (
+                  // Show ALL department users regardless of department
+                  departmentUsers.map((user) => {
+                    const deptName = user.department_id 
+                      ? departments.find(d => d.id === user.department_id)?.name || 'Unknown Dept'
+                      : 'No Department';
+                    const displayName = user.name || user.email || 'Unnamed User';
+                    
+                    return (
+                      <option key={user.id} value={user.id}>
+                        {displayName} - {deptName}
+                      </option>
+                    );
+                  })
+                )}
+              </select>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                {departmentUsers.length > 0 ? (
+                  <>
+                    {departmentUsers.length} department user{departmentUsers.length !== 1 ? 's' : ''} available (all departments)
+                  </>
+                ) : (
+                  'No department users found. Please create department users in the Users section.'
+                )}
+              </p>
+            </div>
+
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => {
+                  setShowAssignModal(false);
+                  setSelectedComplaint(null);
+                  setAssignedUser('');
+                }}
+                className="btn-secondary"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAssignComplaint}
+                disabled={assigning || !assignedUser}
+                className="btn-primary disabled:opacity-50"
+              >
+                {assigning ? 'Assigning...' : 'Assign'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </DashboardLayout>

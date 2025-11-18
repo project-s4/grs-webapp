@@ -677,28 +677,22 @@ export default function AdminDashboardPage() {
                 className="form-select w-full"
               >
                 <option value="">Select a user...</option>
-                {(() => {
-                  const complaintDeptId =
-                    selectedComplaint.department_id ||
-                    departments.find(d => d.name === selectedComplaint.department_name)?.id ||
-                    null;
-
-                  const matchingUsers = departmentUsers.filter(user => {
-                    if (!complaintDeptId) return true;
-                    return user.department_id === complaintDeptId || !user.department_id;
-                  });
-
-                  const usersToShow = matchingUsers.length > 0 ? matchingUsers : departmentUsers;
-
-                  return usersToShow.map((user) => (
+                {/* Show ALL department users regardless of department */}
+                {departmentUsers.map((user) => {
+                  const deptName = user.department_id 
+                    ? departments.find(d => d.id === user.department_id)?.name || 'Unknown Dept'
+                    : 'No Department';
+                  const displayName = user.name || user.email || 'Unnamed User';
+                  
+                  return (
                     <option key={user.id} value={user.id}>
-                      {user.name || user.email || 'Unnamed User'}
+                      {displayName} - {deptName}
                     </option>
-                  ));
-                })()}
+                  );
+                })}
               </select>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                Showing users from {selectedComplaint.department_name || 'all'} department
+                {departmentUsers.length} department user{departmentUsers.length !== 1 ? 's' : ''} available (all departments)
               </p>
             </div>
 
