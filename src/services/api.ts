@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { supabase } from '@/src/lib/supabase';
 
 // API client - proxies to Next.js API routes, which then proxy to backend
 const api = axios.create({
@@ -10,11 +11,15 @@ const api = axios.create({
 });
 
 // Add request interceptor for auth token
-api.interceptors.request.use((config) => {
+api.interceptors.request.use(async (config) => {
   if (typeof window !== 'undefined') {
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        config.headers.Authorization = `Bearer ${session.access_token}`;
+      }
+    } catch (error) {
+      console.error('Error getting Supabase session:', error);
     }
   }
   return config;
@@ -25,11 +30,11 @@ api.interceptors.response.use(
   (response) => {
     return response;
   },
-  (error) => {
+  async (error) => {
     if (error.response?.status === 401) {
-      // Clear token and redirect to login if unauthorized
-      localStorage.removeItem('token');
+      // Sign out from Supabase and redirect to login if unauthorized
       if (typeof window !== 'undefined') {
+        await supabase.auth.signOut();
         window.location.href = '/login';
       }
     }

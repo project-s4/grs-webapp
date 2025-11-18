@@ -1,151 +1,76 @@
 'use client';
 
-import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm } from 'react-hook-form';
-import * as z from 'zod';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { useAuth } from '@/src/contexts/auth-context';
 import toast from 'react-hot-toast';
-import { Eye, EyeOff } from 'lucide-react';
+import { Github, Mail } from 'lucide-react';
 import LoginPageLayout from '@/src/components/LoginPageLayout';
-
-const loginSchema = z.object({
-  email: z.string().email('Invalid email address'),
-  password: z.string().min(1, 'Password is required'),
-});
-
-type LoginFormData = z.infer<typeof loginSchema>;
 
 export default function AdminLoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirect = searchParams.get('redirect');
-  const [showPassword, setShowPassword] = useState(false);
-
-  const {
-    register,
-    handleSubmit,
-    formState: { errors, isSubmitting },
-  } = useForm<LoginFormData>({
-    resolver: zodResolver(loginSchema),
-  });
+  const { user, login, loading } = useAuth();
+  const [isSigningIn, setIsSigningIn] = useState(false);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      try {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        if (payload.role === 'admin') {
-          window.location.href = redirect || '/admin/dashboard';
-        }
-      } catch (error) {
-        localStorage.removeItem('token');
-      }
-    }
-  }, [redirect]);
-
-  const onSubmit = async (data: LoginFormData) => {
-    try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: data.email, password: data.password })
-      });
-
-      const result = await response.json();
-      if (!response.ok) {
-        throw new Error(result.error || 'Login failed');
-      }
-
-      // Check if user is actually an admin
-      if (result.user.role === 'admin') {
-        localStorage.setItem('token', result.token);
-        toast.success('Login successful!');
-        window.location.href = redirect || '/admin/dashboard';
+    // If user is already logged in and is admin, redirect
+    if (user && !loading) {
+      if (user.role === 'admin') {
+        router.push(redirect || '/admin/dashboard');
       } else {
         toast.error('Access denied. Admin credentials required.');
+        // Redirect to regular login
+        router.push('/login');
       }
-    } catch (error) {
-      console.error('Login failed:', error);
-      toast.error('Login failed. Please check your credentials.');
+    }
+  }, [user, loading, redirect, router]);
+
+  const handleOAuthLogin = async (provider: 'github' | 'google') => {
+    try {
+      setIsSigningIn(true);
+      await login(provider);
+      // OAuth will redirect, role check happens in callback
+    } catch (error: any) {
+      console.error('OAuth login error:', error);
+      toast.error(error.message || 'Failed to sign in. Please try again.');
+      setIsSigningIn(false);
     }
   };
 
-  const footerLinks = [
-    { label: 'Are you a department user?', href: '/department/login', color: 'blue' },
-    { label: 'Are you a regular citizen?', href: '/login' },
-    { label: '', href: '/' }
-  ];
-
   return (
-    <LoginPageLayout 
-      title="Admin Login" 
-      subtitle="For system administrators only"
-      footerLinks={footerLinks}
+    <LoginPageLayout
+      title="Admin Sign In"
+      subtitle="Sign in with your admin account"
+      type="admin"
+      footerLinks={[]}
     >
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                Email Address
-              </label>
-              <input
-                id="email"
-                type="email"
-                autoComplete="email"
-                required
-                className="form-input"
-                placeholder="Enter your email address"
-                {...register('email')}
-              />
-              {errors.email && (
-                <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
-              )}
-            </div>
+      <div className="space-y-4">
+        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 mb-4">
+          <p className="text-sm text-yellow-800 dark:text-yellow-200">
+            <strong>Note:</strong> After signing in, your account will be verified for admin access.
+          </p>
+        </div>
 
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-                Password
-              </label>
-              <div className="relative">
-                <input
-                  id="password"
-                  type={showPassword ? 'text' : 'password'}
-                  autoComplete="current-password"
-                  required
-                  className="form-input pr-12"
-                  placeholder="Enter your password"
-                  {...register('password')}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 rounded-lg p-1"
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
-                >
-                  {showPassword ? (
-                    <EyeOff className="w-5 h-5" />
-                  ) : (
-                    <Eye className="w-5 h-5" />
-                  )}
-                </button>
-              </div>
-              {errors.password && (
-                <p className="mt-1 text-sm text-red-600">
-                  {errors.password.message}
-                </p>
-              )}
-            </div>
+        <button
+          onClick={() => handleOAuthLogin('google')}
+          disabled={isSigningIn || loading}
+          className="btn-primary btn-lg w-full flex items-center justify-center gap-3"
+        >
+          <Mail className="w-5 h-5" />
+          {isSigningIn ? 'Signing in...' : 'Sign in with Google'}
+        </button>
 
-            <div>
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed bg-red-600 hover:bg-red-700 focus:ring-red-500"
-              >
-                {isSubmitting ? 'Signing in...' : 'Sign in as Admin'}
-              </button>
-            </div>
-        </form>
+        <button
+          onClick={() => handleOAuthLogin('github')}
+          disabled={isSigningIn || loading}
+          className="btn-secondary btn-lg w-full flex items-center justify-center gap-3"
+        >
+          <Github className="w-5 h-5" />
+          {isSigningIn ? 'Signing in...' : 'Sign in with GitHub'}
+        </button>
+      </div>
     </LoginPageLayout>
   );
 }
