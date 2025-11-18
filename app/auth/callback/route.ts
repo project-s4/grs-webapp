@@ -25,7 +25,16 @@ export async function GET(request: NextRequest) {
 
       if (error) {
         console.error('Error exchanging code for session:', error);
-        return NextResponse.redirect(new URL('/login?error=oauth_error', requestUrl.origin));
+        // Provide more specific error messages
+        let errorMessage = 'oauth_error';
+        if (error.message?.includes('Unable to exchange external code') || error.message?.includes('server_error')) {
+          errorMessage = 'OAuth configuration error. Please verify Client ID and Secret in Supabase Dashboard > Authentication > Providers.';
+        } else if (error.message?.includes('invalid_grant') || error.message?.includes('code expired')) {
+          errorMessage = 'OAuth code expired. Please try signing in again.';
+        } else {
+          errorMessage = error.message || 'oauth_error';
+        }
+        return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(errorMessage)}`, requestUrl.origin));
       }
 
       if (data?.session) {
