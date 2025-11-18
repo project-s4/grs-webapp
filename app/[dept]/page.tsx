@@ -1,7 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Building, Mail, Lock, ArrowLeft, CheckCircle, LogIn, Edit, X } from 'lucide-react';
+import { Building, Mail, Lock, ArrowLeft, CheckCircle, LogIn, Edit, X, Github } from 'lucide-react';
+import { useAuth } from '@/src/contexts/auth-context';
+import { supabase } from '@/src/lib/supabase';
+import { useRouter, usePathname } from 'next/navigation';
 
 interface Department {
   id: string;
@@ -31,19 +34,21 @@ interface User {
 type View = 'login' | 'dashboard' | 'details';
 
 export default function DepartmentPortalPage({ params }: { params: { dept: string } | Promise<{ dept: string }> }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const { user, login, loading: authLoading } = useAuth();
   const [resolvedParams, setResolvedParams] = useState<{ dept: string } | null>(null);
   const [department, setDepartment] = useState<Department | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentView, setCurrentView] = useState<View>('login');
   const [complaints, setComplaints] = useState<Complaint[]>([]);
   const [selectedComplaint, setSelectedComplaint] = useState<Complaint | null>(null);
-  const [loginForm, setLoginForm] = useState({ email: '', password: '' });
   const [statusUpdate, setStatusUpdate] = useState('');
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [updateComplaintId, setUpdateComplaintId] = useState<string | null>(null);
+  const [isSigningIn, setIsSigningIn] = useState(false);
 
   // Handle async params in Next.js 14
   useEffect(() => {
@@ -67,13 +72,6 @@ export default function DepartmentPortalPage({ params }: { params: { dept: strin
     const init = async () => {
       try {
         setLoading(true);
-        
-        // Check if user is authenticated
-        const token = localStorage.getItem('access_token') || localStorage.getItem('token');
-        if (token) {
-          setIsAuthenticated(true);
-          setCurrentView('dashboard');
-        }
 
         // Fetch departments and find matching one
         const deptResponse = await fetch('/api/departments');
@@ -103,11 +101,6 @@ export default function DepartmentPortalPage({ params }: { params: { dept: strin
         }
 
         setDepartment(foundDept);
-        
-        // If authenticated, fetch complaints for this department
-        if (token) {
-          await fetchComplaints(foundDept.id, token);
-        }
       } catch (err: any) {
         console.error('Initialization error:', err);
         setError(err.message || 'Failed to initialize page');
@@ -118,6 +111,42 @@ export default function DepartmentPortalPage({ params }: { params: { dept: strin
 
     init();
   }, [resolvedParams]);
+
+  // Check authentication status and redirect
+  useEffect(() => {
+    if (authLoading || !resolvedParams?.dept || !department) return;
+
+    // Check if user is authenticated with Supabase
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session) {
+        // Check if user profile exists and has correct department role
+        if (user) {
+          // Verify user has department role and matches this department
+          const userDeptId = user.department_id?.toString();
+          if ((user.role === 'department' || user.role === 'department_admin' || user.role === 'department_officer') && 
+              (userDeptId === department.id)) {
+            setCurrentView('dashboard');
+            // Fetch complaints with Supabase token
+            const token = session.access_token;
+            await fetchComplaints(department.id, token);
+          } else {
+            // User doesn't have access to this department
+            setCurrentView('login');
+          }
+        } else {
+          // Session exists but user profile not loaded yet - wait
+          setCurrentView('login');
+        }
+      } else {
+        // No session - show login
+        setCurrentView('login');
+      }
+    };
+
+    checkAuth();
+  }, [authLoading, user, department, resolvedParams]);
 
   // Fetch complaints filtered by department
   const fetchComplaints = async (departmentId: string, token?: string) => {
@@ -136,10 +165,8 @@ export default function DepartmentPortalPage({ params }: { params: { dept: strin
 
       if (!response.ok) {
         if (response.status === 401) {
-          // Token expired
-          localStorage.removeItem('access_token');
-          localStorage.removeItem('token');
-          setIsAuthenticated(false);
+          // Token expired - sign out
+          await supabase.auth.signOut();
           setCurrentView('login');
           return;
         }
@@ -169,54 +196,29 @@ export default function DepartmentPortalPage({ params }: { params: { dept: strin
     }
   };
 
-  // Handle login
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Handle OAuth login
+  const handleOAuthLogin = async (provider: 'github' | 'google') => {
     try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: loginForm.email,
-          password: loginForm.password,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Login failed');
-      }
-
-      const data = await response.json();
-      localStorage.setItem('access_token', data.access_token);
-      localStorage.setItem('token', data.access_token); // Also store as 'token' for compatibility
-      if (data.user) {
-        localStorage.setItem('user_role', data.user.role);
-        localStorage.setItem('user_id', data.user.id);
-        if (data.user.department_id) {
-          localStorage.setItem('department_id', data.user.department_id);
-        }
-      }
-
-      setIsAuthenticated(true);
-      setCurrentView('dashboard');
+      setIsSigningIn(true);
+      // Store the current department portal path for redirect after OAuth
+      const currentPath = pathname;
+      sessionStorage.setItem('dept_portal_redirect', currentPath);
       
-      // Fetch complaints after login
-      if (department) {
-        await fetchComplaints(department.id, data.access_token);
-      }
-    } catch (err: any) {
-      console.error('Login error:', err);
-      alert(`Login failed: ${err.message}`);
+      await login(provider);
+      // OAuth will redirect to callback, then back here
+    } catch (error: any) {
+      console.error('OAuth login error:', error);
+      alert(error.message || 'Failed to sign in. Please try again.');
+      setIsSigningIn(false);
     }
   };
 
   // Handle viewing complaint details
   const viewDetails = async (complaintId: string) => {
     try {
-      const token = localStorage.getItem('access_token') || localStorage.getItem('token');
+      // Get token from Supabase session
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
       const headers: HeadersInit = {
         'Content-Type': 'application/json',
       };
@@ -279,7 +281,9 @@ export default function DepartmentPortalPage({ params }: { params: { dept: strin
 
     setUpdatingStatus(true);
     try {
-      const token = localStorage.getItem('access_token') || localStorage.getItem('token');
+      // Get token from Supabase session
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
       const complaintId = updateComplaintId || selectedComplaint?.id;
       
       if (!complaintId) {
@@ -315,7 +319,8 @@ export default function DepartmentPortalPage({ params }: { params: { dept: strin
       
       // Refresh complaints list
       if (department) {
-        const token = localStorage.getItem('access_token') || localStorage.getItem('token');
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
         await fetchComplaints(department.id, token || undefined);
       }
     } catch (err: any) {
@@ -373,8 +378,7 @@ export default function DepartmentPortalPage({ params }: { params: { dept: strin
   };
 
   // Check if user can update status
-  const userRole = typeof window !== 'undefined' ? localStorage.getItem('user_role') : null;
-  const canUpdateStatus = userRole === 'department' || userRole === 'department_admin' || userRole === 'department_officer' || userRole === 'admin';
+  const canUpdateStatus = user && (user.role === 'department' || user.role === 'department_admin' || user.role === 'department_officer' || user.role === 'admin');
 
   if (loading) {
     return (
@@ -419,45 +423,31 @@ export default function DepartmentPortalPage({ params }: { params: { dept: strin
           <div className="w-full max-w-md animate-fadeIn">
             <div className="bg-white dark:bg-gray-800 p-10 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700">
               <h2 className="text-center text-blue-800 dark:text-blue-400 text-3xl font-bold mb-8">Officer Login</h2>
-              <form onSubmit={handleLogin}>
-                <div className="mb-6 relative">
-                  <label htmlFor="email" className="block mb-2 font-semibold text-gray-700 dark:text-gray-300">Email</label>
-                  <div className="relative">
-                    <Mail className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
-                    <input
-                      type="email"
-                      id="email"
-                      required
-                      value={loginForm.email}
-                      onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
-                      className="w-full pl-12 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-blue-600 dark:focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
-                      placeholder="Enter your email"
-                    />
-                  </div>
+              <div className="space-y-4">
+                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4">
+                  <p className="text-sm text-blue-800 dark:text-blue-200">
+                    <strong>Note:</strong> After signing in, your account will be verified for {departmentName} access.
+                  </p>
                 </div>
-                <div className="mb-6 relative">
-                  <label htmlFor="password" className="block mb-2 font-semibold text-gray-700 dark:text-gray-300">Password</label>
-                  <div className="relative">
-                    <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
-                    <input
-                      type="password"
-                      id="password"
-                      required
-                      value={loginForm.password}
-                      onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
-                      className="w-full pl-12 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-blue-600 dark:focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
-                      placeholder="Enter your password"
-                    />
-                  </div>
-                </div>
+                
                 <button
-                  type="submit"
-                  className="w-full bg-blue-600 dark:bg-blue-500 text-white py-3 px-6 rounded-lg font-semibold text-lg flex items-center justify-center gap-2 hover:bg-blue-700 dark:hover:bg-blue-600 transition-all hover:-translate-y-1 hover:shadow-lg"
+                  onClick={() => handleOAuthLogin('google')}
+                  disabled={isSigningIn || authLoading}
+                  className="w-full bg-blue-600 dark:bg-blue-500 text-white py-3 px-6 rounded-lg font-semibold text-lg flex items-center justify-center gap-2 hover:bg-blue-700 dark:hover:bg-blue-600 transition-all hover:-translate-y-1 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <LogIn className="w-5 h-5" />
-                  <span>Login</span>
+                  <Mail className="w-5 h-5" />
+                  {isSigningIn ? 'Signing in...' : 'Sign in with Google'}
                 </button>
-              </form>
+
+                <button
+                  onClick={() => handleOAuthLogin('github')}
+                  disabled={isSigningIn || authLoading}
+                  className="w-full bg-gray-800 dark:bg-gray-700 text-white py-3 px-6 rounded-lg font-semibold text-lg flex items-center justify-center gap-2 hover:bg-gray-900 dark:hover:bg-gray-600 transition-all hover:-translate-y-1 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Github className="w-5 h-5" />
+                  {isSigningIn ? 'Signing in...' : 'Sign in with GitHub'}
+                </button>
+              </div>
             </div>
           </div>
         )}

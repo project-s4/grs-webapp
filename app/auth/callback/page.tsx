@@ -28,7 +28,13 @@ export default function CallbackPage() {
           if (error === 'server_error' || errorDescription?.includes('Unable to exchange external code')) {
             errorMsg = 'OAuth configuration error. Please verify Client ID and Secret in Supabase Dashboard.';
           }
-          router.push(`/login?error=${encodeURIComponent(errorMsg)}`);
+          // Check if we have a department portal redirect
+          const deptPortalRedirect = sessionStorage.getItem('dept_portal_redirect');
+          const redirectPath = deptPortalRedirect || '/login';
+          if (deptPortalRedirect) {
+            sessionStorage.removeItem('dept_portal_redirect');
+          }
+          router.push(`${redirectPath}?error=${encodeURIComponent(errorMsg)}`);
           return;
         }
 
@@ -46,13 +52,22 @@ export default function CallbackPage() {
             } else {
               errorMessage = exchangeError.message || 'oauth_error';
             }
-            router.push(`/login?error=${encodeURIComponent(errorMessage)}`);
+            
+            // Check if we have a department portal redirect
+            const deptPortalRedirect = sessionStorage.getItem('dept_portal_redirect');
+            const redirectPath = deptPortalRedirect || '/login';
+            if (deptPortalRedirect) {
+              sessionStorage.removeItem('dept_portal_redirect');
+            }
+            router.push(`${redirectPath}?error=${encodeURIComponent(errorMessage)}`);
             return;
           }
 
           if (data?.session) {
             // Session is set, wait for auth context to update
             // The auth context will check session and redirect appropriately
+            // Force a small delay to ensure session is fully established
+            await new Promise(resolve => setTimeout(resolve, 500));
             return;
           }
         }
@@ -61,20 +76,34 @@ export default function CallbackPage() {
         const { data: { session } } = await supabase.auth.getSession();
         
         if (session) {
-          // Session exists, auth context will handle redirect
+          // Session exists, wait a bit for auth context to process
+          await new Promise(resolve => setTimeout(resolve, 500));
           return;
         }
 
         // No session and no code, redirect to login
-        router.push('/login?error=no_session');
+        const deptPortalRedirect = sessionStorage.getItem('dept_portal_redirect');
+        const redirectPath = deptPortalRedirect || '/login';
+        if (deptPortalRedirect) {
+          sessionStorage.removeItem('dept_portal_redirect');
+        }
+        router.push(`${redirectPath}?error=no_session`);
       } catch (error) {
         console.error('Callback error:', error);
-        router.push('/login?error=callback_error');
+        const deptPortalRedirect = sessionStorage.getItem('dept_portal_redirect');
+        const redirectPath = deptPortalRedirect || '/login';
+        if (deptPortalRedirect) {
+          sessionStorage.removeItem('dept_portal_redirect');
+        }
+        router.push(`${redirectPath}?error=callback_error`);
       }
     };
 
-    handleCallback();
-  }, [router, searchParams]);
+    // Only run once when component mounts
+    if (searchParams) {
+      handleCallback();
+    }
+  }, [router]); // Remove searchParams from dependencies to prevent re-runs
 
   // Once user is loaded, redirect based on role
   useEffect(() => {
@@ -101,6 +130,15 @@ export default function CallbackPage() {
         }
         
         if (user) {
+          // Check if we have a department portal redirect stored
+          const deptPortalRedirect = sessionStorage.getItem('dept_portal_redirect');
+          if (deptPortalRedirect) {
+            sessionStorage.removeItem('dept_portal_redirect');
+            // Redirect back to department portal
+            router.push(deptPortalRedirect);
+            return;
+          }
+
           // User profile exists, redirect based on role
           let redirectPath = '/user/dashboard';
           
