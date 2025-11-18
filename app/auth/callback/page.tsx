@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/src/lib/supabase';
 import { useAuth } from '@/src/contexts/auth-context';
@@ -9,41 +9,40 @@ export default function CallbackPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, loading } = useAuth();
-  const handledRef = useRef(false);
+  const codeExchangedRef = useRef(false);
+  const redirectAttemptedRef = useRef(false);
+  const [waitingForUser, setWaitingForUser] = useState(false);
 
+  // Step 1: Exchange code for session
   useEffect(() => {
-    // Prevent multiple executions
-    if (handledRef.current) return;
+    if (codeExchangedRef.current) return;
     
-    const handleCallback = async () => {
-      handledRef.current = true;
-      
+    const exchangeCode = async () => {
       try {
-        // Get code from URL
         const code = searchParams.get('code');
         const error = searchParams.get('error');
         const errorDescription = searchParams.get('error_description');
 
         if (error) {
+          codeExchangedRef.current = true;
           let errorMsg = errorDescription || error;
           if (error === 'server_error' || errorDescription?.includes('Unable to exchange external code')) {
             errorMsg = 'OAuth configuration error. Please verify Client ID and Secret in Supabase Dashboard.';
           }
-          // Check if we have a department portal redirect
           const deptPortalRedirect = sessionStorage.getItem('dept_portal_redirect');
           const redirectPath = deptPortalRedirect || '/login';
           if (deptPortalRedirect) {
             sessionStorage.removeItem('dept_portal_redirect');
           }
-          router.push(`${redirectPath}?error=${encodeURIComponent(errorMsg)}`);
+          router.replace(`${redirectPath}?error=${encodeURIComponent(errorMsg)}`);
           return;
         }
 
-        // If we have code, exchange it for session
         if (code) {
           const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
 
           if (exchangeError) {
+            codeExchangedRef.current = true;
             console.error('Error exchanging code:', exchangeError);
             let errorMessage = 'oauth_error';
             if (exchangeError.message?.includes('Unable to exchange external code') || exchangeError.message?.includes('server_error')) {
@@ -54,109 +53,168 @@ export default function CallbackPage() {
               errorMessage = exchangeError.message || 'oauth_error';
             }
             
-            // Check if we have a department portal redirect
             const deptPortalRedirect = sessionStorage.getItem('dept_portal_redirect');
             const redirectPath = deptPortalRedirect || '/login';
             if (deptPortalRedirect) {
               sessionStorage.removeItem('dept_portal_redirect');
             }
-            router.push(`${redirectPath}?error=${encodeURIComponent(errorMessage)}`);
+            router.replace(`${redirectPath}?error=${encodeURIComponent(errorMessage)}`);
             return;
           }
 
           if (data?.session) {
-            // Session is set, wait for auth context to update
-            // The auth context will check session and redirect appropriately
-            // Force a small delay to ensure session is fully established
-            await new Promise(resolve => setTimeout(resolve, 500));
+            codeExchangedRef.current = true;
+            setWaitingForUser(true);
+            // Session is established, now wait for auth context to load user profile
             return;
           }
         }
 
-        // Check if we have an existing session
+        // No code and no existing session - check if session exists
         const { data: { session } } = await supabase.auth.getSession();
-        
         if (session) {
-          // Session exists, wait a bit for auth context to process
-          await new Promise(resolve => setTimeout(resolve, 500));
-          return;
+          codeExchangedRef.current = true;
+          setWaitingForUser(true);
+        } else {
+          codeExchangedRef.current = true;
+          const deptPortalRedirect = sessionStorage.getItem('dept_portal_redirect');
+          const redirectPath = deptPortalRedirect || '/login';
+          if (deptPortalRedirect) {
+            sessionStorage.removeItem('dept_portal_redirect');
+          }
+          router.replace(`${redirectPath}?error=no_session`);
         }
-
-        // No session and no code, redirect to login
-        const deptPortalRedirect = sessionStorage.getItem('dept_portal_redirect');
-        const redirectPath = deptPortalRedirect || '/login';
-        if (deptPortalRedirect) {
-          sessionStorage.removeItem('dept_portal_redirect');
-        }
-        router.push(`${redirectPath}?error=no_session`);
       } catch (error) {
+        codeExchangedRef.current = true;
         console.error('Callback error:', error);
         const deptPortalRedirect = sessionStorage.getItem('dept_portal_redirect');
         const redirectPath = deptPortalRedirect || '/login';
         if (deptPortalRedirect) {
           sessionStorage.removeItem('dept_portal_redirect');
         }
-        router.push(`${redirectPath}?error=callback_error`);
+        router.replace(`${redirectPath}?error=callback_error`);
       }
     };
 
-    handleCallback();
+    exchangeCode();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Empty deps - only run once on mount, searchParams accessed via closure
+  }, []);
 
-  // Once user is loaded, redirect based on role
+  // Step 2: Wait for auth context to finish loading, then redirect
   useEffect(() => {
-    if (!loading) {
-      // Check if we have a session but no user (profile doesn't exist)
-      const checkSession = async () => {
-        const { data: { session } } = await supabase.auth.getSession();
+    if (!waitingForUser || loading || redirectAttemptedRef.current) return;
+
+    const attemptRedirect = async () => {
+      // Wait a bit more to ensure user state is fully updated
+      await new Promise(resolve => setTimeout(resolve, 800));
+
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        redirectAttemptedRef.current = true;
+        const deptPortalRedirect = sessionStorage.getItem('dept_portal_redirect');
+        const redirectPath = deptPortalRedirect || '/login';
+        if (deptPortalRedirect) {
+          sessionStorage.removeItem('dept_portal_redirect');
+        }
+        router.replace(`${redirectPath}?error=session_expired`);
+        return;
+      }
+
+      // Check if user profile exists
+      if (user) {
+        redirectAttemptedRef.current = true;
+        const deptPortalRedirect = sessionStorage.getItem('dept_portal_redirect');
         
-        if (session && !user) {
-          // We have a Supabase session but no local user profile
-          // Get user info from Supabase
-          const { data: { user: supabaseUser } } = await supabase.auth.getUser();
+        if (deptPortalRedirect) {
+          sessionStorage.removeItem('dept_portal_redirect');
+          router.replace(deptPortalRedirect);
+          return;
+        }
+
+        // User profile exists, redirect based on role
+        let redirectPath = '/user/dashboard';
+        if (user.role === 'admin') {
+          redirectPath = '/admin/dashboard';
+        } else if (user.role === 'department' || user.role === 'department_admin') {
+          redirectPath = '/department/dashboard';
+        }
+        router.replace(redirectPath);
+        return;
+      }
+
+      // Session exists but user profile not loaded - check if profile exists
+      // Wait a bit longer for the auth context to fetch user profile
+      const checkForUser = async () => {
+        let attempts = 0;
+        const maxAttempts = 10;
+        
+        while (attempts < maxAttempts && !user) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+          attempts++;
           
+          // Re-check user state from auth context
+          const { data: { session: currentSession } } = await supabase.auth.getSession();
+          if (!currentSession) {
+            redirectAttemptedRef.current = true;
+            const deptPortalRedirect = sessionStorage.getItem('dept_portal_redirect');
+            const redirectPath = deptPortalRedirect || '/login';
+            if (deptPortalRedirect) {
+              sessionStorage.removeItem('dept_portal_redirect');
+            }
+            router.replace(`${redirectPath}?error=session_expired`);
+            return;
+          }
+        }
+
+        // If we still don't have user after waiting, check if profile needs to be created
+        if (!user) {
+          const { data: { user: supabaseUser } } = await supabase.auth.getUser();
           if (supabaseUser) {
-            // Redirect to register to create profile
+            redirectAttemptedRef.current = true;
             const registerUrl = new URL('/register', window.location.origin);
             registerUrl.searchParams.set('supabase_user_id', supabaseUser.id);
             if (supabaseUser.email) {
               registerUrl.searchParams.set('email', supabaseUser.email);
             }
-            router.push(registerUrl.pathname + registerUrl.search);
+            router.replace(registerUrl.pathname + registerUrl.search);
             return;
           }
         }
-        
+
+        // Final attempt - redirect based on current state
         if (user) {
-          // Check if we have a department portal redirect stored
+          redirectAttemptedRef.current = true;
           const deptPortalRedirect = sessionStorage.getItem('dept_portal_redirect');
           if (deptPortalRedirect) {
             sessionStorage.removeItem('dept_portal_redirect');
-            // Redirect back to department portal
-            router.push(deptPortalRedirect);
-            return;
+            router.replace(deptPortalRedirect);
+          } else {
+            let redirectPath = '/user/dashboard';
+            if (user.role === 'admin') {
+              redirectPath = '/admin/dashboard';
+            } else if (user.role === 'department' || user.role === 'department_admin') {
+              redirectPath = '/department/dashboard';
+            }
+            router.replace(redirectPath);
           }
-
-          // User profile exists, redirect based on role
-          let redirectPath = '/user/dashboard';
-          
-          if (user.role === 'admin') {
-            redirectPath = '/admin/dashboard';
-          } else if (user.role === 'department' || user.role === 'department_admin') {
-            redirectPath = '/department/dashboard';
+        } else {
+          // Give up and redirect to login
+          redirectAttemptedRef.current = true;
+          const deptPortalRedirect = sessionStorage.getItem('dept_portal_redirect');
+          const redirectPath = deptPortalRedirect || '/login';
+          if (deptPortalRedirect) {
+            sessionStorage.removeItem('dept_portal_redirect');
           }
-
-          router.push(redirectPath);
-        } else if (!session) {
-          // No session, redirect to login
-          router.push('/login');
+          router.replace(`${redirectPath}?error=profile_not_found`);
         }
       };
 
-      checkSession();
-    }
-  }, [user, loading, router]);
+      checkForUser();
+    };
+
+    attemptRedirect();
+  }, [waitingForUser, loading, user, router]);
 
   // Loading state
   return (
