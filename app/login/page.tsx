@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/src/contexts/auth-context';
 import toast from 'react-hot-toast';
-import { Github, Mail, AlertCircle } from 'lucide-react';
+import { Mail, Lock } from 'lucide-react';
 import LoginPageLayout from '@/src/components/LoginPageLayout';
 
 export default function LoginPage() {
@@ -12,6 +12,8 @@ export default function LoginPage() {
   const searchParams = useSearchParams();
   const redirect = searchParams.get('redirect');
   const { user, login, loading } = useAuth();
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [isSigningIn, setIsSigningIn] = useState(false);
 
   useEffect(() => {
@@ -48,14 +50,35 @@ export default function LoginPage() {
     }
   }, [user, loading, redirect, router]);
 
-  const handleOAuthLogin = async (provider: 'github' | 'google') => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!username || !password) {
+      toast.error('Please enter username and password');
+      return;
+    }
+
     try {
       setIsSigningIn(true);
-      await login(provider);
-      // OAuth will redirect, so we don't need to do anything here
+      await login(username, password);
+      
+      // Redirect after successful login
+      let redirectPath = '/user/dashboard';
+      if (redirect) {
+        if (redirect === 'home' || redirect === '/home') {
+          redirectPath = '/';
+        } else if (redirect === 'dashboard' || redirect === '/dashboard') {
+          redirectPath = '/user/dashboard';
+        } else if (redirect.startsWith('/')) {
+          redirectPath = redirect;
+        }
+      }
+      
+      router.push(redirectPath);
     } catch (error: any) {
-      console.error('OAuth login error:', error);
+      console.error('Login error:', error);
       toast.error(error.message || 'Failed to sign in. Please try again.');
+    } finally {
       setIsSigningIn(false);
     }
   };
@@ -64,22 +87,6 @@ export default function LoginPage() {
     { label: "Don't have an account?", href: '/register' },
   ];
 
-  // Check for error in URL
-  useEffect(() => {
-    const error = searchParams.get('error');
-    if (error) {
-      let errorMessage = error;
-      if (error.includes('Unable to exchange external code') || error.includes('server_error')) {
-        errorMessage = 'OAuth configuration error. Please verify Client ID and Secret in Supabase Dashboard.';
-      } else if (error.includes('provider is not enabled')) {
-        errorMessage = 'OAuth provider is not enabled. Please enable it in Supabase Dashboard.';
-      } else if (error.includes('redirect_uri_mismatch')) {
-        errorMessage = 'Redirect URI mismatch. Please check callback URL configuration.';
-      }
-      toast.error(errorMessage, { duration: 8000 });
-    }
-  }, [searchParams]);
-
   return (
     <LoginPageLayout
       title="Sign In"
@@ -87,55 +94,55 @@ export default function LoginPage() {
       type="citizen"
       footerLinks={footerLinks}
     >
-      <div className="space-y-4">
-        {searchParams.get('error') && (
-          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-4">
-            <div className="flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
-              <div className="flex-1">
-                <h4 className="font-semibold text-red-800 dark:text-red-200 mb-1">OAuth Configuration Error</h4>
-                <p className="text-sm text-red-700 dark:text-red-300 mb-2">
-                  Unable to exchange OAuth code. This usually means the Client Secret in Supabase doesn't match your OAuth app.
-                </p>
-                <p className="text-sm text-red-600 dark:text-red-400">
-                  <strong>Fix:</strong> Go to{' '}
-                  <a 
-                    href="https://supabase.com/dashboard/project/hwlngdpexkgbtrzatfox/authentication/providers" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="underline font-semibold"
-                  >
-                    Supabase Dashboard → Authentication → Providers
-                  </a>{' '}
-                  and verify/re-enter the Client Secret for your OAuth provider.
-                </p>
-              </div>
-            </div>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label htmlFor="username" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Username
+          </label>
+          <div className="relative">
+            <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <input
+              id="username"
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-700 dark:text-white"
+              placeholder="Enter username"
+              required
+            />
           </div>
-        )}
-        
-        <button
-          onClick={() => handleOAuthLogin('google')}
-          disabled={isSigningIn || loading}
-          className="btn-primary btn-lg w-full flex items-center justify-center gap-3"
-        >
-          <Mail className="w-5 h-5" />
-          {isSigningIn ? 'Signing in...' : 'Sign in with Google'}
-        </button>
-
-        <button
-          onClick={() => handleOAuthLogin('github')}
-          disabled={isSigningIn || loading}
-          className="btn-secondary btn-lg w-full flex items-center justify-center gap-3"
-        >
-          <Github className="w-5 h-5" />
-          {isSigningIn ? 'Signing in...' : 'Sign in with GitHub'}
-        </button>
-
-        <div className="text-center text-sm text-gray-600 dark:text-gray-400 mt-6">
-          <p>By signing in, you agree to our terms of service and privacy policy.</p>
         </div>
-      </div>
+
+        <div>
+          <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Password
+          </label>
+          <div className="relative">
+            <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-700 dark:text-white"
+              placeholder="Enter password"
+              required
+            />
+          </div>
+        </div>
+
+        <button
+          type="submit"
+          disabled={isSigningIn || loading}
+          className="btn-primary btn-lg w-full flex items-center justify-center gap-2"
+        >
+          {isSigningIn ? 'Signing in...' : 'Sign In'}
+        </button>
+
+        <div className="text-center text-sm text-gray-600 dark:text-gray-400 mt-4">
+          <p>Any username and password will work for demo purposes.</p>
+        </div>
+      </form>
     </LoginPageLayout>
   );
 }

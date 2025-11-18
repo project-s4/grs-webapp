@@ -2,8 +2,6 @@
 
 import { createContext, useContext, ReactNode, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/src/lib/supabase';
-import type { User as SupabaseUser, Session } from '@supabase/supabase-js';
 
 type User = {
   id: string;
@@ -16,13 +14,14 @@ type User = {
 
 type AuthContextType = {
   user: User;
-  login: (provider: 'github' | 'google') => Promise<void>;
+  login: (username: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   loading: boolean;
   isAuthenticated: () => boolean;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const TOKEN_KEY = 'auth_token';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User>(null);
@@ -37,56 +36,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!mounted) return;
-
-    // Check for existing session
     checkSession();
-
-    // Listen for auth state changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-          await handleSession(session);
-        } else if (event === 'SIGNED_OUT') {
-          setUser(null);
-        }
-      }
-    );
-
-    return () => {
-      subscription.unsubscribe();
-    };
   }, [mounted]);
 
   const checkSession = async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        await handleSession(session);
+      const token = localStorage.getItem(TOKEN_KEY);
+      if (token) {
+        await verifyToken(token);
       } else {
         setUser(null);
       }
     } catch (error) {
       console.error('Error checking session:', error);
+      localStorage.removeItem(TOKEN_KEY);
       setUser(null);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSession = async (session: Session | null) => {
-    if (!session) {
-      setUser(null);
-      return;
-    }
-
+  const verifyToken = async (token: string) => {
     try {
-      // Get user profile from backend
       const response = await fetch('/api/auth/verify', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ token: session.access_token }),
+        body: JSON.stringify({ token }),
       });
 
       if (response.ok) {
@@ -99,38 +76,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           role: userData.role,
           department_id: userData.department_id
         });
-      } else if (response.status === 404) {
-        // User profile doesn't exist yet - need to create it
-        // This will be handled by the OAuth callback
-        setUser(null);
       } else {
-        console.error('Failed to verify user:', await response.text());
+        // Token invalid, remove it
+        localStorage.removeItem(TOKEN_KEY);
         setUser(null);
       }
     } catch (error) {
-      console.error('Error handling session:', error);
+      console.error('Error verifying token:', error);
+      localStorage.removeItem(TOKEN_KEY);
       setUser(null);
     }
   };
 
-  const login = async (provider: 'github' | 'google') => {
+  const login = async (username: string, password: string) => {
     try {
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider,
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
+        body: JSON.stringify({ username, password }),
       });
 
-      if (error) {
-        console.error('OAuth error:', error);
-        // Provide helpful error messages
-        if (error.message?.includes('provider is not enabled') || error.message?.includes('Unsupported provider')) {
-          throw new Error(`${provider.charAt(0).toUpperCase() + provider.slice(1)} OAuth is not enabled. Please enable it in Supabase Dashboard > Authentication > Providers.`);
-        }
-        throw error;
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Login failed');
       }
-    } catch (error) {
+
+      const data = await response.json();
+      
+      // Store token
+      localStorage.setItem(TOKEN_KEY, data.access_token);
+      
+      // Set user
+      setUser({
+        id: data.user.id.toString(),
+        name: data.user.name,
+        email: data.user.email,
+        phone: data.user.phone || '',
+        role: data.user.role,
+        department_id: data.user.department_id
+      });
+    } catch (error: any) {
       console.error('Login failed:', error);
       throw error;
     }
@@ -138,7 +125,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     try {
-      await supabase.auth.signOut();
+      localStorage.removeItem(TOKEN_KEY);
       setUser(null);
       router.push('/login');
     } catch (error) {
