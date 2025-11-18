@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Building, Mail, Lock, ArrowLeft, CheckCircle, LogIn } from 'lucide-react';
+import { Building, Mail, Lock, ArrowLeft, CheckCircle, LogIn, Edit, X } from 'lucide-react';
 
 interface Department {
   id: string;
@@ -42,6 +42,8 @@ export default function DepartmentPortalPage({ params }: { params: { dept: strin
   const [loginForm, setLoginForm] = useState({ email: '', password: '' });
   const [statusUpdate, setStatusUpdate] = useState('');
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
+  const [updateComplaintId, setUpdateComplaintId] = useState<string | null>(null);
 
   // Handle async params in Next.js 14
   useEffect(() => {
@@ -241,15 +243,50 @@ export default function DepartmentPortalPage({ params }: { params: { dept: strin
     }
   };
 
+  // Open update modal
+  const openUpdateModal = (complaintId: string) => {
+    const complaint = complaints.find(c => c.id === complaintId);
+    if (complaint) {
+      setUpdateComplaintId(complaintId);
+      // Map status to backend format
+      const statusMapping: { [key: string]: string } = {
+        'Pending': 'new',
+        'pending': 'new',
+        'New': 'new',
+        'new': 'new',
+        'In Progress': 'in_progress',
+        'in-progress': 'in_progress',
+        'in_progress': 'in_progress',
+        'Resolved': 'resolved',
+        'resolved': 'resolved',
+        'Triaged': 'triaged',
+        'triaged': 'triaged',
+        'Escalated': 'escalated',
+        'escalated': 'escalated',
+        'Closed': 'closed',
+        'closed': 'closed',
+      };
+      const backendStatus = statusMapping[complaint.status] || complaint.status || 'new';
+      setStatusUpdate(backendStatus);
+      setShowUpdateModal(true);
+    }
+  };
+
   // Handle status update
   const handleStatusUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedComplaint) return;
+    if (!updateComplaintId && !selectedComplaint) return;
 
     setUpdatingStatus(true);
     try {
       const token = localStorage.getItem('access_token') || localStorage.getItem('token');
-      const response = await fetch(`/api/complaints/${selectedComplaint.id}`, {
+      const complaintId = updateComplaintId || selectedComplaint?.id;
+      
+      if (!complaintId) {
+        throw new Error('No complaint selected');
+      }
+
+      const response = await fetch(`/api/complaints/${complaintId}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -266,7 +303,15 @@ export default function DepartmentPortalPage({ params }: { params: { dept: strin
       alert('Status updated successfully!');
       
       // Update the complaint in state
-      setSelectedComplaint({ ...selectedComplaint, status: statusUpdate });
+      if (updateComplaintId) {
+        setComplaints(complaints.map(c => 
+          c.id === updateComplaintId ? { ...c, status: statusUpdate } : c
+        ));
+        setShowUpdateModal(false);
+        setUpdateComplaintId(null);
+      } else if (selectedComplaint) {
+        setSelectedComplaint({ ...selectedComplaint, status: statusUpdate });
+      }
       
       // Refresh complaints list
       if (department) {
@@ -442,15 +487,27 @@ export default function DepartmentPortalPage({ params }: { params: { dept: strin
                             </td>
                             <td className="px-4 py-5 text-gray-900 dark:text-white" data-label="Date Filed">{formatDate(complaint.created_at)}</td>
                             <td className="px-4 py-5 rounded-r-lg" data-label="Action">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  viewDetails(complaint.id);
-                                }}
-                                className="bg-transparent text-blue-600 dark:text-blue-400 px-4 py-2 rounded-lg border border-blue-600 dark:border-blue-500 font-semibold text-sm hover:bg-blue-600 dark:hover:bg-blue-500 hover:text-white transition-all"
-                              >
-                                View
-                              </button>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    viewDetails(complaint.id);
+                                  }}
+                                  className="bg-transparent text-blue-600 dark:text-blue-400 px-3 py-1.5 rounded-lg border border-blue-600 dark:border-blue-500 font-semibold text-xs hover:bg-blue-600 dark:hover:bg-blue-500 hover:text-white transition-all"
+                                >
+                                  View
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openUpdateModal(complaint.id);
+                                  }}
+                                  className="bg-transparent text-green-600 dark:text-green-400 px-3 py-1.5 rounded-lg border border-green-600 dark:border-green-500 font-semibold text-xs hover:bg-green-600 dark:hover:bg-green-500 hover:text-white transition-all flex items-center gap-1"
+                                >
+                                  <Edit className="w-3 h-3" />
+                                  Update
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         );
@@ -537,6 +594,83 @@ export default function DepartmentPortalPage({ params }: { params: { dept: strin
                 <ArrowLeft className="w-5 h-5" />
                 <span>Back to Dashboard</span>
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* Status Update Modal */}
+        {showUpdateModal && updateComplaintId && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-75 flex items-center justify-center z-50 p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 p-6 max-w-md w-full">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white">Update Complaint Status</h3>
+                <button
+                  onClick={() => {
+                    setShowUpdateModal(false);
+                    setUpdateComplaintId(null);
+                    setStatusUpdate('');
+                  }}
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              
+              <div className="mb-4">
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                  Complaint ID: <span className="font-mono font-semibold text-gray-900 dark:text-white">
+                    {complaints.find(c => c.id === updateComplaintId)?.reference_no || complaints.find(c => c.id === updateComplaintId)?.tracking_id || updateComplaintId}
+                  </span>
+                </p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Title: <span className="font-semibold text-gray-900 dark:text-white">
+                    {complaints.find(c => c.id === updateComplaintId)?.title || 'N/A'}
+                  </span>
+                </p>
+              </div>
+
+              <form onSubmit={handleStatusUpdate} className="space-y-4">
+                <div>
+                  <label htmlFor="status-select-modal" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Status
+                  </label>
+                  <select
+                    id="status-select-modal"
+                    value={statusUpdate}
+                    onChange={(e) => setStatusUpdate(e.target.value)}
+                    className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 focus:outline-none focus:border-blue-600 dark:focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  >
+                    <option value="new">New</option>
+                    <option value="triaged">Triaged</option>
+                    <option value="in_progress">In Progress</option>
+                    <option value="resolved">Resolved</option>
+                    <option value="escalated">Escalated</option>
+                    <option value="closed">Closed</option>
+                  </select>
+                </div>
+
+                <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowUpdateModal(false);
+                      setUpdateComplaintId(null);
+                      setStatusUpdate('');
+                    }}
+                    className="px-4 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={updatingStatus}
+                    className="px-4 py-2 text-sm bg-blue-600 dark:bg-blue-500 text-white rounded-lg font-semibold flex items-center gap-2 hover:bg-blue-700 dark:hover:bg-blue-600 transition-all disabled:opacity-50"
+                  >
+                    <CheckCircle className="w-4 h-4" />
+                    {updatingStatus ? 'Updating...' : 'Update Status'}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         )}
