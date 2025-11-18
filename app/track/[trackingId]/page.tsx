@@ -240,7 +240,7 @@ export default function TrackComplaintPage({ params }: { params: { trackingId: s
         id: 'filed',
         type: 'status_change',
         title: 'Complaint filed',
-        timestamp: complaint.dateFiled || complaint.created_at || new Date().toISOString(),
+        timestamp: complaint.dateFiled || new Date().toISOString(),
         actor: complaint.name || 'User',
         actorType: 'user',
         metadata: {
@@ -253,11 +253,11 @@ export default function TrackComplaintPage({ params }: { params: { trackingId: s
     if (complaint.comments && complaint.comments.length > 0) {
       complaint.comments.forEach((comment) => {
         activityList.push({
-          id: comment._id || `comment-${comment.id}`,
+          id: comment._id || `comment-${comment._id}`,
           type: 'comment',
           title: 'New comment added',
-          description: comment.text || comment.message,
-          timestamp: comment.createdAt || comment.date || new Date().toISOString(),
+          description: comment.text,
+          timestamp: comment.createdAt || new Date().toISOString(),
           actor: comment.author || 'Unknown',
           actorType: comment.authorType === 'admin' ? 'admin' : 
                      comment.authorType === 'department' ? 'department' : 'user'
@@ -271,7 +271,7 @@ export default function TrackComplaintPage({ params }: { params: { trackingId: s
         activityList.push({
           id: attachment._id || `attachment-${index}`,
           type: 'attachment',
-          title: `Attachment added: ${attachment.originalName || attachment.name}`,
+          title: `Attachment added: ${attachment.originalName}`,
           timestamp: attachment.uploadedAt || new Date().toISOString(),
           actor: complaint.name || 'User',
           actorType: 'user'
