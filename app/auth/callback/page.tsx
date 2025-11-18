@@ -1,22 +1,23 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '@/src/lib/supabase';
 import { useAuth } from '@/src/contexts/auth-context';
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://hwlngdpexkgbtrzatfox.supabase.co';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh3bG5nZHBleGtnYnRyemF0Zm94Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE5ODMzOTMsImV4cCI6MjA3NzU1OTM5M30.L6ltCRG5qPfxdPF3vzO4JO9Xsm0UtQtiQfF3WnJZH-Y';
-
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export default function CallbackPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, loading } = useAuth();
+  const handledRef = useRef(false);
 
   useEffect(() => {
+    // Prevent multiple executions
+    if (handledRef.current) return;
+    
     const handleCallback = async () => {
+      handledRef.current = true;
+      
       try {
         // Get code from URL
         const code = searchParams.get('code');
@@ -99,11 +100,9 @@ export default function CallbackPage() {
       }
     };
 
-    // Only run once when component mounts
-    if (searchParams) {
-      handleCallback();
-    }
-  }, [router]); // Remove searchParams from dependencies to prevent re-runs
+    handleCallback();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty deps - only run once on mount, searchParams accessed via closure
 
   // Once user is loaded, redirect based on role
   useEffect(() => {
