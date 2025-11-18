@@ -135,65 +135,20 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // If we have a code, let the client-side page handle it
+  // The client-side page will exchange the code and set the session
   if (code) {
-    try {
-      // Exchange code for session - Supabase handles this automatically
-      const { data, error } = await supabase.auth.exchangeCodeForSession(code);
-
-      if (error) {
-        console.error('Error exchanging code for session:', error);
-        // Provide more specific error messages
-        let errorMessage = 'oauth_error';
-        if (error.message?.includes('Unable to exchange external code') || error.message?.includes('server_error')) {
-          errorMessage = 'OAuth configuration error. Please verify Client ID and Secret in Supabase Dashboard > Authentication > Providers.';
-        } else if (error.message?.includes('invalid_grant') || error.message?.includes('code expired')) {
-          errorMessage = 'OAuth code expired. Please try signing in again.';
-        } else {
-          errorMessage = error.message || 'oauth_error';
-        }
-        return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(errorMessage)}`, requestUrl.origin));
-      }
-
-      if (data?.session) {
-        // Instead of redirecting immediately, redirect to client-side callback page
-        // This allows the client to properly set the session
-        const callbackUrl = new URL('/auth/callback', requestUrl.origin);
-        callbackUrl.searchParams.set('token', data.session.access_token);
-        callbackUrl.searchParams.set('refresh', data.session.refresh_token || '');
-        
-        // Also check user profile and pass that info
-        try {
-          const verifyResponse = await fetch(`${requestUrl.origin}/api/auth/verify`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ token: data.session.access_token }),
-          });
-
-          if (verifyResponse.status === 404) {
-            // User profile doesn't exist - pass info for registration
-            callbackUrl.searchParams.set('supabase_user_id', data.session.user.id);
-            if (data.session.user.email) {
-              callbackUrl.searchParams.set('email', data.session.user.email);
-            }
-            callbackUrl.searchParams.set('action', 'register');
-          } else if (verifyResponse.ok) {
-            // User profile exists
-            callbackUrl.searchParams.set('action', 'redirect');
-          }
-        } catch (error) {
-          console.error('Error pre-verifying user:', error);
-        }
-        
-        return NextResponse.redirect(callbackUrl);
-      }
-    } catch (error) {
-      console.error('OAuth callback error:', error);
-      return NextResponse.redirect(new URL('/login?error=callback_error', requestUrl.origin));
+    // Just redirect to the client-side callback page with the code
+    // The client will handle session setup and redirection
+    const callbackUrl = new URL('/auth/callback', requestUrl.origin);
+    callbackUrl.searchParams.set('code', code);
+    if (state) {
+      callbackUrl.searchParams.set('state', state);
     }
+    return NextResponse.redirect(callbackUrl);
   }
 
-  return NextResponse.redirect(new URL('/login', requestUrl.origin));
+  // No code, redirect to login
+  return NextResponse.redirect(new URL('/login?error=no_code', requestUrl.origin));
 }
 

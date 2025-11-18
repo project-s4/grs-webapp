@@ -20,30 +20,15 @@ export default function CallbackPage() {
       try {
         // Get code from URL
         const code = searchParams.get('code');
-        const token = searchParams.get('token');
-        const refreshToken = searchParams.get('refresh');
         const error = searchParams.get('error');
+        const errorDescription = searchParams.get('error_description');
 
         if (error) {
-          router.push(`/login?error=${encodeURIComponent(error)}`);
-          return;
-        }
-
-        // If we have token and refresh token, set the session directly
-        if (token && refreshToken) {
-          const { data, error: sessionError } = await supabase.auth.setSession({
-            access_token: token,
-            refresh_token: refreshToken,
-          });
-
-          if (sessionError) {
-            console.error('Error setting session:', sessionError);
-            router.push('/login?error=session_error');
-            return;
+          let errorMsg = errorDescription || error;
+          if (error === 'server_error' || errorDescription?.includes('Unable to exchange external code')) {
+            errorMsg = 'OAuth configuration error. Please verify Client ID and Secret in Supabase Dashboard.';
           }
-
-          // Session is set, wait for auth context to update
-          // The auth context will check session and redirect appropriately
+          router.push(`/login?error=${encodeURIComponent(errorMsg)}`);
           return;
         }
 
@@ -53,12 +38,21 @@ export default function CallbackPage() {
 
           if (exchangeError) {
             console.error('Error exchanging code:', exchangeError);
-            router.push(`/login?error=${encodeURIComponent(exchangeError.message || 'exchange_error')}`);
+            let errorMessage = 'oauth_error';
+            if (exchangeError.message?.includes('Unable to exchange external code') || exchangeError.message?.includes('server_error')) {
+              errorMessage = 'OAuth configuration error. Please verify Client ID and Secret in Supabase Dashboard.';
+            } else if (exchangeError.message?.includes('invalid_grant') || exchangeError.message?.includes('code expired')) {
+              errorMessage = 'OAuth code expired. Please try signing in again.';
+            } else {
+              errorMessage = exchangeError.message || 'oauth_error';
+            }
+            router.push(`/login?error=${encodeURIComponent(errorMessage)}`);
             return;
           }
 
           if (data?.session) {
             // Session is set, wait for auth context to update
+            // The auth context will check session and redirect appropriately
             return;
           }
         }
@@ -71,7 +65,7 @@ export default function CallbackPage() {
           return;
         }
 
-        // No session and no code/token, redirect to login
+        // No session and no code, redirect to login
         router.push('/login?error=no_session');
       } catch (error) {
         console.error('Callback error:', error);
@@ -84,35 +78,48 @@ export default function CallbackPage() {
 
   // Once user is loaded, redirect based on role
   useEffect(() => {
-    if (!loading && user) {
-      let redirectPath = '/user/dashboard';
-      
-      if (user.role === 'admin') {
-        redirectPath = '/admin/dashboard';
-      } else if (user.role === 'department' || user.role === 'department_admin') {
-        redirectPath = '/department/dashboard';
-      }
-
-      router.push(redirectPath);
-    } else if (!loading && !user) {
-      // Check if we need to create profile
-      const supabaseUserId = searchParams.get('supabase_user_id');
-      const email = searchParams.get('email');
-      
-      if (supabaseUserId) {
-        // Redirect to register page to create profile
-        const registerUrl = new URL('/register', window.location.origin);
-        registerUrl.searchParams.set('supabase_user_id', supabaseUserId);
-        if (email) {
-          registerUrl.searchParams.set('email', email);
+    if (!loading) {
+      // Check if we have a session but no user (profile doesn't exist)
+      const checkSession = async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (session && !user) {
+          // We have a Supabase session but no local user profile
+          // Get user info from Supabase
+          const { data: { user: supabaseUser } } = await supabase.auth.getUser();
+          
+          if (supabaseUser) {
+            // Redirect to register to create profile
+            const registerUrl = new URL('/register', window.location.origin);
+            registerUrl.searchParams.set('supabase_user_id', supabaseUser.id);
+            if (supabaseUser.email) {
+              registerUrl.searchParams.set('email', supabaseUser.email);
+            }
+            router.push(registerUrl.pathname + registerUrl.search);
+            return;
+          }
         }
-        router.push(registerUrl.pathname + registerUrl.search);
-      } else {
-        // No user and no profile creation needed, redirect to login
-        router.push('/login');
-      }
+        
+        if (user) {
+          // User profile exists, redirect based on role
+          let redirectPath = '/user/dashboard';
+          
+          if (user.role === 'admin') {
+            redirectPath = '/admin/dashboard';
+          } else if (user.role === 'department' || user.role === 'department_admin') {
+            redirectPath = '/department/dashboard';
+          }
+
+          router.push(redirectPath);
+        } else if (!session) {
+          // No session, redirect to login
+          router.push('/login');
+        }
+      };
+
+      checkSession();
     }
-  }, [user, loading, router, searchParams]);
+  }, [user, loading, router]);
 
   // Loading state
   return (
