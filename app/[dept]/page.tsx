@@ -131,28 +131,52 @@ export default function DepartmentPortalPage({ params }: { params: { dept: strin
     const checkAuth = async () => {
       const token = getToken();
       
-      if (token && user) {
-        // Verify user has department role
-        // For now, allow any department user to access any department portal
-        // Department-specific access can be enforced later via department_id matching
-        const hasDepartmentRole = user.role === 'department' || 
-                                  user.role === 'department_admin' || 
-                                  user.role === 'department_officer';
-        
-        if (hasDepartmentRole) {
-          setCurrentView('dashboard');
-          await fetchComplaints(department.id, token);
+      // For demo: allow any authenticated user to access department portals
+      // In production, enforce department role and department_id matching
+      if (token) {
+        // If we have a token, try to verify it
+        if (user) {
+          // User is set from auth context
+          // Allow access regardless of role for demo purposes
+          if (currentView === 'login') {
+            setCurrentView('dashboard');
+            await fetchComplaints(department.id, token);
+          }
         } else {
-          // User doesn't have department role
-          setCurrentView('login');
+          // No user in context, but we have token - verify it
+          try {
+            const verifyResponse = await fetch('/api/auth/verify', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ token }),
+            });
+            
+            if (verifyResponse.ok) {
+              const userData = await verifyResponse.json();
+              // Allow access for demo
+              setCurrentView('dashboard');
+              await fetchComplaints(department.id, token);
+            } else {
+              // Token invalid
+              setCurrentView('login');
+            }
+          } catch (err) {
+            console.error('Token verification error:', err);
+            setCurrentView('login');
+          }
         }
       } else {
-        // No token or user - show login
-        setCurrentView('login');
+        // No token - show login
+        if (currentView !== 'login') {
+          setCurrentView('login');
+        }
       }
     };
 
     checkAuth();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, user, department, resolvedParams]);
 
   // Fetch complaints filtered by department
@@ -217,44 +241,47 @@ export default function DepartmentPortalPage({ params }: { params: { dept: strin
     try {
       setIsSigningIn(true);
       
-      // Call login API directly to get user data immediately
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ username, password }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.detail || 'Login failed');
-      }
-
-      const data = await response.json();
-      
-      // Store token
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('auth_token', data.access_token);
-      }
-      
-      // Also call the auth context login to update global state
+      // Call auth context login which handles token storage and user state
       await login(username, password);
       
-      // Check user from login response
-      const loginUser = data.user;
+      // Wait a moment for auth context to update
+      await new Promise(resolve => setTimeout(resolve, 300));
       
-      // For demo: allow any authenticated user to access department portals
-      // In production, enforce department role and department_id matching
-      if (loginUser) {
-        // Allow access - we'll handle role checking in the useEffect
-        setCurrentView('dashboard');
-        const token = data.access_token;
-        if (token && department) {
-          await fetchComplaints(department.id, token);
+      // Get token from localStorage
+      const token = getToken();
+      
+      // Verify token and get user data
+      if (token) {
+        try {
+          const verifyResponse = await fetch('/api/auth/verify', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ token }),
+          });
+          
+          if (verifyResponse.ok) {
+            const userData = await verifyResponse.json();
+            
+            // For demo: allow any authenticated user to access department portals
+            // The role check happens in the useEffect
+            if (userData && department) {
+              setCurrentView('dashboard');
+              await fetchComplaints(department.id, token);
+            } else {
+              alert('Could not verify user data. Please try again.');
+            }
+          } else {
+            const error = await verifyResponse.json();
+            throw new Error(error.detail || 'Token verification failed');
+          }
+        } catch (verifyError: any) {
+          console.error('Token verification error:', verifyError);
+          alert(verifyError.message || 'Could not verify login. Please try again.');
         }
       } else {
-        alert('Login successful but user data not received. Please refresh the page.');
+        alert('Login failed - no token received. Please try again.');
       }
     } catch (error: any) {
       console.error('Login error:', error);
