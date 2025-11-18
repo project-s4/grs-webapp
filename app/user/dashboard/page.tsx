@@ -87,23 +87,33 @@ export default function UserDashboard() {
 
     // User is authenticated and is a citizen
     if (authUser && !user) {
-      setUser({
+      const userData = {
         id: authUser.id,
         name: authUser.name,
         email: authUser.email,
         role: authUser.role
-      });
+      };
+      setUser(userData);
       
       if (authUser.email) {
-        fetchComplaints(authUser.email);
+        // Fetch complaints with a small delay to ensure state is set
+        setTimeout(() => {
+          fetchComplaints(authUser.email);
+        }, 100);
       } else {
         setLoading(false);
       }
+    } else if (authUser && user && user.email && complaints.length === 0 && !loading && !error) {
+      // If user is set but complaints haven't been fetched, fetch them
+      fetchComplaints(user.email);
     }
   }, [authUser, authLoading, user, router]);
 
   const fetchComplaints = async (userEmail: string, page = 1, filters = filter) => {
     try {
+      setLoading(true);
+      setError('');
+      
       const params = new URLSearchParams({
         email: userEmail,
         page: page.toString(),
@@ -113,11 +123,24 @@ export default function UserDashboard() {
         ...(filters.search && { search: filters.search })
       });
       
-      const response = await fetch(`/api/user/complaints?${params}`);
+      // Get token from localStorage
+      const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      
+      const response = await fetch(`/api/user/complaints?${params}`, {
+        headers,
+      });
+      
       const data = await response.json();
 
       if (response.ok) {
-        setComplaints(data.complaints || []);
+        setComplaints(data.complaints || data.success ? (data.complaints || []) : []);
         setPagination({
           page: data.pagination?.page || 1,
           limit: data.pagination?.limit || 10,
@@ -126,12 +149,14 @@ export default function UserDashboard() {
         });
         setError('');
       } else {
-        const errorMessage = data.message || data.error || 'Failed to fetch complaints. Please try again.';
+        const errorMessage = data.message || data.error || data.details || 'Failed to fetch complaints. Please try again.';
         setError(errorMessage);
+        console.error('Failed to fetch complaints:', data);
       }
     } catch (err: any) {
       const errorMessage = err.message || 'Network error. Please check your connection and try again.';
       setError(errorMessage);
+      console.error('Error fetching complaints:', err);
     } finally {
       setLoading(false);
     }

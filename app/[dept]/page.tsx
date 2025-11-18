@@ -214,20 +214,43 @@ export default function DepartmentPortalPage({ params }: { params: { dept: strin
       setIsSigningIn(true);
       await login(username, password);
       
-      // After login, check if user has access to this department
-      if (user) {
-        const userDeptId = user.department_id?.toString();
-        if ((user.role === 'department' || user.role === 'department_admin' || user.role === 'department_officer') && 
-            (userDeptId === department?.id)) {
-          setCurrentView('dashboard');
-          const token = getToken();
-          if (token && department) {
-            await fetchComplaints(department.id, token);
+      // Wait for auth context to update user state
+      let attempts = 0;
+      const maxAttempts = 10;
+      
+      while (attempts < maxAttempts) {
+        await new Promise(resolve => setTimeout(resolve, 200));
+        
+        // Check current user from auth context
+        const currentUser = user;
+        
+        if (currentUser) {
+          const hasDepartmentRole = currentUser.role === 'department' || 
+                                    currentUser.role === 'department_admin' || 
+                                    currentUser.role === 'department_officer';
+          
+          // For now, allow any department user to access any department portal
+          // The department assignment can be done in the database later
+          if (hasDepartmentRole) {
+            setCurrentView('dashboard');
+            const token = getToken();
+            if (token && department) {
+              await fetchComplaints(department.id, token);
+            }
+            setIsSigningIn(false);
+            return;
+          } else {
+            alert('Access denied. You need a department role to access this portal. Please contact admin to assign you a department role.');
+            setIsSigningIn(false);
+            return;
           }
-        } else {
-          alert('Access denied. You do not have access to this department.');
         }
+        
+        attempts++;
       }
+      
+      // If we still don't have user after waiting, show error
+      alert('Login successful but could not verify access. Please refresh the page.');
     } catch (error: any) {
       console.error('Login error:', error);
       alert(error.message || 'Failed to sign in. Please try again.');
