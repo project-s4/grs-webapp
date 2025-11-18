@@ -11,11 +11,31 @@ export async function GET(request: NextRequest) {
   const code = requestUrl.searchParams.get('code');
   const error = requestUrl.searchParams.get('error');
   const errorDescription = requestUrl.searchParams.get('error_description');
+  const state = requestUrl.searchParams.get('state');
 
   // Handle OAuth errors from Supabase
   if (error) {
     console.error('OAuth error from Supabase:', error, errorDescription);
-    return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(errorDescription || error)}`, requestUrl.origin));
+    let errorMsg = errorDescription || error;
+    
+    // Provide specific guidance for credential errors
+    if (error === 'server_error' || errorDescription?.includes('Unable to exchange external code')) {
+      if (errorDescription?.includes('incorrect_client_credentials') || errorDescription?.includes('GitHub')) {
+        errorMsg = 'GitHub OAuth: Incorrect Client ID or Secret. Please update in Supabase Dashboard > Authentication > Providers > GitHub';
+      } else if (errorDescription?.includes('invalid_client') || errorDescription?.includes('Google')) {
+        errorMsg = 'Google OAuth: Incorrect Client ID or Secret. Please update in Supabase Dashboard > Authentication > Providers > Google';
+      } else {
+        errorMsg = 'OAuth configuration error: Incorrect Client ID or Secret. Please verify credentials in Supabase Dashboard > Authentication > Providers';
+      }
+    }
+    
+    return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(errorMsg)}`, requestUrl.origin));
+  }
+
+  // If no code and no error, redirect to login (might be direct access to callback)
+  if (!code) {
+    console.warn('Callback accessed without code parameter');
+    return NextResponse.redirect(new URL('/login?error=invalid_callback', requestUrl.origin));
   }
 
   if (code) {
