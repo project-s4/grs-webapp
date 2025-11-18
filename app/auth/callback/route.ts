@@ -9,6 +9,14 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey);
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get('code');
+  const error = requestUrl.searchParams.get('error');
+  const errorDescription = requestUrl.searchParams.get('error_description');
+
+  // Handle OAuth errors from Supabase
+  if (error) {
+    console.error('OAuth error from Supabase:', error, errorDescription);
+    return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(errorDescription || error)}`, requestUrl.origin));
+  }
 
   if (code) {
     try {

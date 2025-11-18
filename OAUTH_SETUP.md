@@ -23,7 +23,9 @@ Visit: https://supabase.com/dashboard/project/hwlngdpexkgbtrzatfox
    - Fill in:
      - **Application name**: Grievance Redressal System (or any name)
      - **Homepage URL**: `https://hwlngdpexkgbtrzatfox.supabase.co`
-     - **Authorization callback URL**: `https://hwlngdpexkgbtrzatfox.supabase.co/auth/v1/callback`
+     - **Authorization callback URL**: 
+     - For Supabase: `https://hwlngdpexkgbtrzatfox.supabase.co/auth/v1/callback`
+     - This is the Supabase callback URL that Supabase will handle, then redirect to your app
    - Click **"Register application"**
    - Copy the **Client ID** and **Client Secret**
    - Paste them into Supabase GitHub provider settings
@@ -47,20 +49,25 @@ Visit: https://supabase.com/dashboard/project/hwlngdpexkgbtrzatfox
    - Paste them into Supabase Google provider settings
 4. Click **"Save"** in Supabase
 
-### 5. Update Redirect URLs (Important!)
+### 5. Configure Redirect URLs in Supabase (CRITICAL!)
 
-After enabling providers, make sure the redirect URLs are configured:
+You need to configure where Supabase redirects after OAuth callback:
 
-**For Production:**
-- `https://hwlngdpexkgbtrzatfox.supabase.co/auth/v1/callback`
-- Your production domain: `https://yourdomain.com/auth/callback`
+1. Go to: https://supabase.com/dashboard/project/hwlngdpexkgbtrzatfox/authentication/url-configuration
+2. Under **"Redirect URLs"**, add:
+   - For local development: `http://localhost:3000/auth/callback`
+   - For production: `https://yourdomain.com/auth/callback` (replace with your actual domain)
 
-**For Local Development:**
-- `http://localhost:3000/auth/callback`
+**Important Notes:**
+- The GitHub/Google OAuth app callback should be: `https://hwlngdpexkgbtrzatfox.supabase.co/auth/v1/callback` (Supabase handles this)
+- Your app callback (what we configure above) is: `http://localhost:3000/auth/callback` or your production domain
+- Supabase will redirect from `https://hwlngdpexkgbtrzatfox.supabase.co/auth/v1/callback` → your app's `/auth/callback`
 
-These should be set in:
-- Supabase Dashboard > Authentication > URL Configuration > Redirect URLs
-- Your OAuth app settings (GitHub/Google)
+**Flow:**
+1. User clicks "Sign in with GitHub" → GitHub OAuth
+2. GitHub redirects to → `https://hwlngdpexkgbtrzatfox.supabase.co/auth/v1/callback`
+3. Supabase processes OAuth → redirects to → `http://localhost:3000/auth/callback` (your app)
+4. Your app creates user profile and redirects to dashboard
 
 ## Testing
 
