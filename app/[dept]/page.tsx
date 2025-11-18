@@ -216,46 +216,46 @@ export default function DepartmentPortalPage({ params }: { params: { dept: strin
 
     try {
       setIsSigningIn(true);
-      await login(username, password);
       
-      // Wait for auth context to update user state
-      let attempts = 0;
-      const maxAttempts = 10;
+      // Call login API directly to get user data immediately
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ username, password }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Login failed');
+      }
+
+      const data = await response.json();
       
-      while (attempts < maxAttempts) {
-        await new Promise(resolve => setTimeout(resolve, 200));
-        
-        // Check current user from auth context
-        const currentUser = user;
-        
-        if (currentUser) {
-          // For demo: allow any authenticated user to access department portals
-          // In production, enforce department role and department_id matching
-          const hasDepartmentRole = currentUser.role === 'department' || 
-                                    currentUser.role === 'department_admin' || 
-                                    currentUser.role === 'department_officer' ||
-                                    currentUser.role === 'admin';  // Admins can access all portals
-          
-          if (hasDepartmentRole || true) {  // Temporary: allow all users for demo
-            setCurrentView('dashboard');
-            const token = getToken();
-            if (token && department) {
-              await fetchComplaints(department.id, token);
-            }
-            setIsSigningIn(false);
-            return;
-          } else {
-            alert('Access denied. You need a department role to access this portal.');
-            setIsSigningIn(false);
-            return;
-          }
-        }
-        
-        attempts++;
+      // Store token
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('auth_token', data.access_token);
       }
       
-      // If we still don't have user after waiting, show error
-      alert('Login successful but could not verify access. Please refresh the page.');
+      // Also call the auth context login to update global state
+      await login(username, password);
+      
+      // Check user from login response
+      const loginUser = data.user;
+      
+      // For demo: allow any authenticated user to access department portals
+      // In production, enforce department role and department_id matching
+      if (loginUser) {
+        // Allow access - we'll handle role checking in the useEffect
+        setCurrentView('dashboard');
+        const token = data.access_token;
+        if (token && department) {
+          await fetchComplaints(department.id, token);
+        }
+      } else {
+        alert('Login successful but user data not received. Please refresh the page.');
+      }
     } catch (error: any) {
       console.error('Login error:', error);
       alert(error.message || 'Failed to sign in. Please try again.');
