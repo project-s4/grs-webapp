@@ -164,7 +164,9 @@ export default function UserDashboard() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('auth_token');
+    }
     window.location.href = '/login';
   };
 
