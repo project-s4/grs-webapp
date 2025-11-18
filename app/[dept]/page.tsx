@@ -326,15 +326,33 @@ export default function DepartmentPortalPage({ params }: { params: { dept: strin
     }
   };
 
+  // Format status for display
+  const formatStatus = (status: string) => {
+    const statusMap: { [key: string]: string } = {
+      'new': 'New',
+      'triaged': 'Triaged',
+      'in_progress': 'In Progress',
+      'resolved': 'Resolved',
+      'escalated': 'Escalated',
+      'closed': 'Closed',
+      'pending': 'Pending',
+    };
+    return statusMap[status.toLowerCase()] || status;
+  };
+
   // Get status badge class with dark mode support
   const getStatusClass = (status: string) => {
-    const normalized = status.toLowerCase().replace(/\s+/g, '');
+    const normalized = status.toLowerCase().replace(/\s+/g, '').replace(/_/g, '');
     if (normalized.includes('pending') || normalized === 'new') {
       return 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200';
     } else if (normalized.includes('progress')) {
       return 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200';
     } else if (normalized.includes('resolved')) {
       return 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200';
+    } else if (normalized.includes('escalated')) {
+      return 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200';
+    } else if (normalized.includes('closed')) {
+      return 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200';
     }
     return 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200';
   };
@@ -482,7 +500,7 @@ export default function DepartmentPortalPage({ params }: { params: { dept: strin
                             <td className="px-4 py-5 text-gray-900 dark:text-white" data-label="Department">{complaint.department_name || 'N/A'}</td>
                             <td className="px-4 py-5" data-label="Status">
                               <span className={`px-3 py-1 rounded-full text-xs font-semibold ${statusClass}`}>
-                                {complaint.status}
+                                {formatStatus(complaint.status)}
                               </span>
                             </td>
                             <td className="px-4 py-5 text-gray-900 dark:text-white" data-label="Date Filed">{formatDate(complaint.created_at)}</td>
