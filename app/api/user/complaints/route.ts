@@ -1,19 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { query } from '@/src/lib/postgres';
+
+// Use production backend URL if available, fallback to localhost
+const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'https://grs-backend-l961.onrender.com';
 
 export const dynamic = 'force-dynamic';
 
 // GET - Get user's complaints
 export async function GET(request: NextRequest) {
   try {
-    // Set CORS headers
-    const headers = {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-      'Access-Control-Allow-Credentials': 'true',
-    };
-    
     const searchParams = request.nextUrl.searchParams;
     const email = searchParams.get('email');
     const status = searchParams.get('status');
@@ -21,12 +15,11 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search');
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
-    const offset = (page - 1) * limit;
     
     console.log('Fetching complaints for:', { email, status, category, search, page, limit });
 
     if (!email) {
-      const errorResponse = NextResponse.json(
+      return NextResponse.json(
         { 
           error: 'MISSING_EMAIL',
           message: 'Email address is required to fetch your complaints.',
@@ -34,122 +27,86 @@ export async function GET(request: NextRequest) {
         },
         { status: 400 }
       );
-      errorResponse.headers.set('Access-Control-Allow-Origin', '*');
-      errorResponse.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-      errorResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-      errorResponse.headers.set('Access-Control-Allow-Credentials', 'true');
-      return errorResponse;
     }
 
-    // First try to get user_id from email if possible
+    // Get token from Authorization header
+    const authHeader = request.headers.get('Authorization');
+    const token = authHeader?.replace('Bearer ', '') || null;
+    
+    // Get user_id from token if available
     let userId = null;
-    try {
-      const userResult = await query('SELECT id FROM users WHERE email = $1', [email]);
-      if (userResult.rows.length > 0) {
-        userId = userResult.rows[0].id;
-        console.log(`Found user_id ${userId} for email ${email}`);
+    if (token) {
+      try {
+        // Decode JWT token to get user_id
+        const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
+        userId = payload.sub;
+      } catch (err) {
+        console.log('Could not decode token:', err);
       }
-    } catch (err) {
-      console.log('Could not find user_id for email:', email);
     }
 
-    // Build query with filters - join with departments table for department name
-    // Search by both user_id (for authenticated complaints) and email (for anonymous complaints)
-    const queryParams: any[] = [email];
-    let filterClauses = [
-      `u.email = $1`,
-      `c.complaint_metadata->>'email' = $1`
-    ];
-
+    // Build query params for backend
+    const params = new URLSearchParams({
+      page: page.toString(),
+      limit: limit.toString(),
+    });
+    
     if (userId) {
-      queryParams.push(userId);
-      filterClauses.push(`c.user_id = $${queryParams.length}`);
+      params.append('user_id', userId);
+    } else if (email) {
+      // If no user_id, try to find by email via backend /api/auth/verify or /me endpoint
+      // For now, we'll fetch all complaints and filter client-side, or use a backend endpoint
+      // Actually, let's just proxy to backend and let it handle filtering
     }
-
-    let queryText = `
-      SELECT 
-        c.*, 
-        d.name as department_name, 
-        d.code as department_code,
-        u.email as user_email,
-        u.phone as user_phone
-      FROM complaints c
-      LEFT JOIN departments d ON c.department_id = d.id
-      LEFT JOIN users u ON c.user_id = u.id
-      WHERE (${filterClauses.join(' OR ')})
-    `;
-
-    let paramIndex = queryParams.length + 1;
-
+    
     if (status) {
-      queryText += ` AND c.status = $${paramIndex}`;
-      queryParams.push(status);
-      paramIndex++;
+      params.append('status', status);
     }
-
+    
     if (category) {
-      queryText += ` AND c.category = $${paramIndex}`;
-      queryParams.push(category);
-      paramIndex++;
+      params.append('category', category);
     }
 
-    if (search) {
-      queryText += ` AND (c.title ILIKE $${paramIndex} OR c.description ILIKE $${paramIndex} OR c.tracking_id ILIKE $${paramIndex})`;
-      queryParams.push(`%${search}%`);
-      paramIndex++;
+    // Call backend API
+    const backendHeaders: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+    
+    if (token) {
+      backendHeaders['Authorization'] = `Bearer ${token}`;
     }
 
-    queryText += ' ORDER BY c.created_at DESC';
-    queryText += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
-    queryParams.push(limit, offset);
+    const backendResponse = await fetch(`${BACKEND_URL}/api/complaints?${params}`, {
+      headers: backendHeaders,
+    });
 
-    const result = await query(queryText, queryParams);
-
-    // Get total count for pagination
-    const countParams: any[] = [email];
-    let countFilterClauses = [
-      `u.email = $1`,
-      `c.complaint_metadata->>'email' = $1`
-    ];
-
-    if (userId) {
-      countParams.push(userId);
-      countFilterClauses.push(`c.user_id = $${countParams.length}`);
+    if (!backendResponse.ok) {
+      const errorData = await backendResponse.json().catch(() => ({}));
+      return NextResponse.json(
+        {
+          error: 'FETCH_ERROR',
+          message: errorData.detail || errorData.message || 'Failed to fetch complaints from backend',
+          details: errorData.detail || errorData.message || 'Backend request failed'
+        },
+        { status: backendResponse.status }
+      );
     }
 
-    let countQuery = `
-      SELECT COUNT(*) 
-      FROM complaints c
-      LEFT JOIN users u ON c.user_id = u.id
-      WHERE (${countFilterClauses.join(' OR ')})
-    `;
-
-    let countParamIndex = countParams.length + 1;
-
-    if (status) {
-      countQuery += ` AND c.status = $${countParamIndex}`;
-      countParams.push(status);
-      countParamIndex++;
+    const backendData = await backendResponse.json();
+    
+    // Backend returns complaints array directly or in a wrapper
+    let complaintsList = Array.isArray(backendData) ? backendData : (backendData.complaints || []);
+    
+    // Filter by email if user_id wasn't available
+    if (email && !userId) {
+      complaintsList = complaintsList.filter((c: any) => {
+        const complaintEmail = c.user_email || (c.complaint_metadata?.email) || '';
+        return complaintEmail.toLowerCase() === email.toLowerCase();
+      });
     }
-
-    if (category) {
-      countQuery += ` AND c.category = $${countParamIndex}`;
-      countParams.push(category);
-      countParamIndex++;
-    }
-
-    if (search) {
-      countQuery += ` AND (c.title ILIKE $${countParamIndex} OR c.description ILIKE $${countParamIndex} OR c.tracking_id ILIKE $${countParamIndex})`;
-      countParams.push(`%${search}%`);
-    }
-
-    const countResult = await query(countQuery, countParams);
-    const total = parseInt(countResult.rows[0].count);
-
-    console.log(`Found ${result.rows.length} complaints out of ${total} total`);
 
     // Format complaints to match frontend expectations
-    const complaints = result.rows.map(complaint => {
+    const complaints = complaintsList.map((complaint: any) => {
       let metadata: any = complaint.complaint_metadata || {};
       if (typeof metadata === 'string') {
         try {
@@ -159,9 +116,21 @@ export async function GET(request: NextRequest) {
         }
       }
 
+      // Map status from backend enum to frontend display format
+      const statusMap: { [key: string]: string } = {
+        'new': 'Pending',
+        'pending': 'Pending',
+        'triaged': 'Pending',
+        'in_progress': 'In Progress',
+        'in-progress': 'In Progress',
+        'resolved': 'Resolved',
+        'escalated': 'Pending',
+        'closed': 'Resolved'
+      };
+
       return {
         _id: complaint.id,
-        tracking_id: complaint.tracking_id, // Match dashboard expectation      
+        tracking_id: complaint.tracking_id || complaint.reference_no,      
         name: complaint.title,
         email: complaint.user_email || metadata.email || null,
         phone: complaint.user_phone || metadata.phone || null,
@@ -169,17 +138,17 @@ export async function GET(request: NextRequest) {
         category: complaint.category || 'General',
         subCategory: complaint.subcategory || complaint.sub_category,
         description: complaint.description,
-        status: complaint.status || 'Pending',
+        status: statusMap[complaint.status?.toLowerCase()] || complaint.status || 'Pending',
         priority: complaint.priority || metadata.priority || 'Medium',
         dateFiled: complaint.created_at,
         updatedAt: complaint.updated_at || complaint.created_at,
-        viewCount: 0, // Default values for compatibility
+        viewCount: 0,
         adminReply: complaint.admin_reply || metadata.adminReply || metadata.reply || null,
-        reply: complaint.admin_reply || metadata.reply || null, // Alternative field name
+        reply: complaint.admin_reply || metadata.reply || null,
       };
     });
 
-    console.log('Returning complaints:', complaints.map(c => ({ id: c._id, tracking_id: c.tracking_id, status: c.status })));
+    console.log(`Returning ${complaints.length} complaints for user ${email}`);
 
     return NextResponse.json({
       success: true,
@@ -187,13 +156,13 @@ export async function GET(request: NextRequest) {
       pagination: {
         page,
         limit,
-        total,
-        pages: Math.ceil(total / limit),
+        total: complaints.length, // Backend should return total, but use length for now
+        pages: Math.ceil(complaints.length / limit),
       },
-    }, { headers });
+    });
   } catch (error: any) {
     console.error('Error fetching user complaints:', error);
-    const errorResponse = NextResponse.json(
+    return NextResponse.json(
       { 
         error: 'FETCH_ERROR',
         message: 'Failed to fetch your complaints. Please try again later.',
@@ -201,11 +170,6 @@ export async function GET(request: NextRequest) {
       },
       { status: 500 }
     );
-    errorResponse.headers.set('Access-Control-Allow-Origin', '*');
-    errorResponse.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    errorResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-    errorResponse.headers.set('Access-Control-Allow-Credentials', 'true');
-    return errorResponse;
   }
 }
 

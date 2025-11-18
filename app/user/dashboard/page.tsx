@@ -107,6 +107,7 @@ export default function UserDashboard() {
       // If user is set but complaints haven't been fetched, fetch them
       fetchComplaints(user.email);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authUser, authLoading, user, router]);
 
   const fetchComplaints = async (userEmail: string, page = 1, filters = filter) => {
