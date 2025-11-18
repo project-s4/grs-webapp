@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, ReactNode, useState, useEffect } from 'react';
+import { createContext, useContext, ReactNode, useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 
 type User = {
@@ -28,6 +28,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
   const router = useRouter();
+  const verifyingRef = useRef(false);
+  const checkedRef = useRef(false);
 
   // Fix hydration issues
   useEffect(() => {
@@ -35,11 +37,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (!mounted) return;
+    if (!mounted || checkedRef.current) return;
     checkSession();
   }, [mounted]);
 
   const checkSession = async () => {
+    if (checkedRef.current || verifyingRef.current) return;
+    checkedRef.current = true;
+
     try {
       const token = localStorage.getItem(TOKEN_KEY);
       if (token) {
@@ -57,7 +62,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const verifyToken = async (token: string) => {
+    if (verifyingRef.current) return;
+    verifyingRef.current = true;
+
     try {
+      // Don't verify if user is already set and matches token
+      if (user) {
+        verifyingRef.current = false;
+        return;
+      }
+
       const response = await fetch('/api/auth/verify', {
         method: 'POST',
         headers: {
@@ -85,6 +99,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error('Error verifying token:', error);
       localStorage.removeItem(TOKEN_KEY);
       setUser(null);
+    } finally {
+      verifyingRef.current = false;
     }
   };
 

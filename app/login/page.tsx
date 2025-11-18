@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useAuth } from '@/src/contexts/auth-context';
 import toast from 'react-hot-toast';
 import { Mail, Lock } from 'lucide-react';
@@ -15,10 +15,13 @@ export default function LoginPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isSigningIn, setIsSigningIn] = useState(false);
+  const redirectingRef = useRef(false);
 
   useEffect(() => {
     // If user is already logged in, redirect
-    if (user && !loading) {
+    if (user && !loading && !redirectingRef.current) {
+      redirectingRef.current = true;
+      
       let redirectPath = '/user/dashboard';
       
       if (redirect) {
@@ -46,7 +49,7 @@ export default function LoginPage() {
         }
       }
 
-      router.push(redirectPath);
+      router.replace(redirectPath);
     }
   }, [user, loading, redirect, router]);
 

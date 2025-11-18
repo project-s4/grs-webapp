@@ -1,7 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useAuth } from '@/src/contexts/auth-context';
 import { formatDate, getStatusBadge } from '@/src/lib/utils';
 import { DashboardLayout, StatCard, FilterBar, EmptyState } from '@/components/dashboard';
 import { 
@@ -38,6 +40,8 @@ interface User {
 }
 
 export default function UserDashboard() {
+  const router = useRouter();
+  const { user: authUser, loading: authLoading } = useAuth();
   const [user, setUser] = useState<User | null>(null);
   const [complaints, setComplaints] = useState<Complaint[]>([]);
   const [loading, setLoading] = useState(true);
@@ -53,51 +57,50 @@ export default function UserDashboard() {
     total: 0,
     pages: 1
   });
+  const redirectingRef = useRef(false);
 
   useEffect(() => {
-    initializePage();
-  }, []);
-
-  const initializePage = () => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      window.location.href = '/login';
+    if (authLoading) return;
+    
+    if (!authUser) {
+      if (!redirectingRef.current) {
+        redirectingRef.current = true;
+        router.replace('/login?redirect=/user/dashboard');
+      }
       return;
     }
 
-    try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      
-      if (payload.role !== 'citizen') {
-        if (payload.role === 'admin') {
-          window.location.href = '/admin/dashboard';
-        } else if (payload.role === 'department' || payload.role === 'department_admin') {
-          window.location.href = '/department/dashboard';
+    // Check if user is citizen
+    if (authUser.role !== 'citizen') {
+      if (!redirectingRef.current) {
+        redirectingRef.current = true;
+        if (authUser.role === 'admin') {
+          router.replace('/admin/dashboard');
+        } else if (authUser.role === 'department' || authUser.role === 'department_admin') {
+          router.replace('/department/dashboard');
         } else {
-          window.location.href = '/login';
+          router.replace('/login');
         }
-        return;
       }
+      return;
+    }
+
+    // User is authenticated and is a citizen
+    if (authUser && !user) {
+      setUser({
+        id: authUser.id,
+        name: authUser.name,
+        email: authUser.email,
+        role: authUser.role
+      });
       
-      const userData = {
-        id: payload.id?.toString() || '',
-        name: payload.name || 'User',
-        email: payload.email || '',
-        role: payload.role || 'citizen'
-      };
-      setUser(userData);
-      
-      if (userData.email) {
-        fetchComplaints(userData.email);
+      if (authUser.email) {
+        fetchComplaints(authUser.email);
       } else {
         setLoading(false);
       }
-    } catch (error) {
-      console.error('Token error:', error);
-      localStorage.removeItem('token');
-      window.location.href = '/login';
     }
-  };
+  }, [authUser, authLoading, user, router]);
 
   const fetchComplaints = async (userEmail: string, page = 1, filters = filter) => {
     try {
