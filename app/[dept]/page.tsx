@@ -281,17 +281,17 @@ export default function DepartmentPortalPage({ params }: { params: { dept: strin
     }
   };
 
-  // Get status badge class
+  // Get status badge class with dark mode support
   const getStatusClass = (status: string) => {
     const normalized = status.toLowerCase().replace(/\s+/g, '');
     if (normalized.includes('pending') || normalized === 'new') {
-      return 'bg-yellow-100 text-yellow-800';
+      return 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200';
     } else if (normalized.includes('progress')) {
-      return 'bg-blue-100 text-blue-800';
+      return 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200';
     } else if (normalized.includes('resolved')) {
-      return 'bg-green-100 text-green-800';
+      return 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200';
     }
-    return 'bg-gray-100 text-gray-800';
+    return 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200';
   };
 
   // Format date
@@ -338,11 +338,11 @@ export default function DepartmentPortalPage({ params }: { params: { dept: strin
   const departmentName = department?.name || resolvedParams?.dept.toUpperCase() || 'Department';
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col">
       {/* Header */}
-      <header className="bg-white text-blue-600 px-8 py-4 flex items-center justify-center shadow-md border-b-4 border-blue-600">
+      <header className="bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 px-8 py-4 flex items-center justify-center shadow-md border-b-4 border-blue-600 dark:border-blue-500">
         <div className="flex items-center gap-4">
-          <Building className="w-10 h-10 text-blue-600" />
+          <Building className="w-10 h-10 text-blue-600 dark:text-blue-400" />
           <h1 className="text-2xl font-semibold">
             {departmentName} Complaint Management Portal
           </h1>
@@ -354,42 +354,42 @@ export default function DepartmentPortalPage({ params }: { params: { dept: strin
         {/* Login Page */}
         {currentView === 'login' && (
           <div className="w-full max-w-md animate-fadeIn">
-            <div className="bg-white p-10 rounded-2xl shadow-lg border border-gray-200">
-              <h2 className="text-center text-blue-800 text-3xl font-bold mb-8">Officer Login</h2>
+            <div className="bg-white dark:bg-gray-800 p-10 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700">
+              <h2 className="text-center text-blue-800 dark:text-blue-400 text-3xl font-bold mb-8">Officer Login</h2>
               <form onSubmit={handleLogin}>
                 <div className="mb-6 relative">
-                  <label htmlFor="email" className="block mb-2 font-semibold text-gray-700">Email</label>
+                  <label htmlFor="email" className="block mb-2 font-semibold text-gray-700 dark:text-gray-300">Email</label>
                   <div className="relative">
-                    <Mail className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Mail className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
                     <input
                       type="email"
                       id="email"
                       required
                       value={loginForm.email}
                       onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
-                      className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-200"
+                      className="w-full pl-12 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-blue-600 dark:focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
                       placeholder="Enter your email"
                     />
                   </div>
                 </div>
                 <div className="mb-6 relative">
-                  <label htmlFor="password" className="block mb-2 font-semibold text-gray-700">Password</label>
+                  <label htmlFor="password" className="block mb-2 font-semibold text-gray-700 dark:text-gray-300">Password</label>
                   <div className="relative">
-                    <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
                     <input
                       type="password"
                       id="password"
                       required
                       value={loginForm.password}
                       onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
-                      className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-200"
+                      className="w-full pl-12 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-blue-600 dark:focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
                       placeholder="Enter your password"
                     />
                   </div>
                 </div>
                 <button
                   type="submit"
-                  className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold text-lg flex items-center justify-center gap-2 hover:bg-blue-700 transition-all hover:-translate-y-1 hover:shadow-lg"
+                  className="w-full bg-blue-600 dark:bg-blue-500 text-white py-3 px-6 rounded-lg font-semibold text-lg flex items-center justify-center gap-2 hover:bg-blue-700 dark:hover:bg-blue-600 transition-all hover:-translate-y-1 hover:shadow-lg"
                 >
                   <LogIn className="w-5 h-5" />
                   <span>Login</span>
@@ -402,23 +402,23 @@ export default function DepartmentPortalPage({ params }: { params: { dept: strin
         {/* Dashboard Page */}
         {currentView === 'dashboard' && (
           <div className="w-full max-w-6xl animate-fadeIn">
-            <div className="bg-white p-10 rounded-2xl shadow-lg border border-gray-200">
-              <h2 className="text-center text-blue-800 text-3xl font-bold mb-8">Complaints Dashboard</h2>
+            <div className="bg-white dark:bg-gray-800 p-10 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700">
+              <h2 className="text-center text-blue-800 dark:text-blue-400 text-3xl font-bold mb-8">Complaints Dashboard</h2>
               {complaints.length === 0 ? (
                 <div className="text-center py-12">
-                  <p className="text-gray-600 text-lg">No complaints found for this department.</p>
+                  <p className="text-gray-600 dark:text-gray-400 text-lg">No complaints found for this department.</p>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="dept-table w-full border-separate border-spacing-y-3">
                     <thead>
-                      <tr className="bg-gray-100">
-                        <th className="px-4 py-4 text-left text-blue-800 font-semibold border-t-2 border-b-2 border-blue-600 rounded-l-lg">Complaint ID</th>
-                        <th className="px-4 py-4 text-left text-blue-800 font-semibold border-t-2 border-b-2 border-blue-600">Citizen Name</th>
-                        <th className="px-4 py-4 text-left text-blue-800 font-semibold border-t-2 border-b-2 border-blue-600">Department</th>
-                        <th className="px-4 py-4 text-left text-blue-800 font-semibold border-t-2 border-b-2 border-blue-600">Status</th>
-                        <th className="px-4 py-4 text-left text-blue-800 font-semibold border-t-2 border-b-2 border-blue-600">Date Filed</th>
-                        <th className="px-4 py-4 text-left text-blue-800 font-semibold border-t-2 border-b-2 border-blue-600 rounded-r-lg">Action</th>
+                      <tr className="bg-gray-100 dark:bg-gray-700">
+                        <th className="px-4 py-4 text-left text-blue-800 dark:text-blue-400 font-semibold border-t-2 border-b-2 border-blue-600 dark:border-blue-500 rounded-l-lg">Complaint ID</th>
+                        <th className="px-4 py-4 text-left text-blue-800 dark:text-blue-400 font-semibold border-t-2 border-b-2 border-blue-600 dark:border-blue-500">Citizen Name</th>
+                        <th className="px-4 py-4 text-left text-blue-800 dark:text-blue-400 font-semibold border-t-2 border-b-2 border-blue-600 dark:border-blue-500">Department</th>
+                        <th className="px-4 py-4 text-left text-blue-800 dark:text-blue-400 font-semibold border-t-2 border-b-2 border-blue-600 dark:border-blue-500">Status</th>
+                        <th className="px-4 py-4 text-left text-blue-800 dark:text-blue-400 font-semibold border-t-2 border-b-2 border-blue-600 dark:border-blue-500">Date Filed</th>
+                        <th className="px-4 py-4 text-left text-blue-800 dark:text-blue-400 font-semibold border-t-2 border-b-2 border-blue-600 dark:border-blue-500 rounded-r-lg">Action</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -427,27 +427,27 @@ export default function DepartmentPortalPage({ params }: { params: { dept: strin
                         return (
                           <tr
                             key={complaint.id}
-                            className="bg-white hover:shadow-lg hover:-translate-y-1 transition-all cursor-pointer rounded-lg"
+                            className="bg-white dark:bg-gray-800 hover:shadow-lg hover:-translate-y-1 transition-all cursor-pointer rounded-lg border border-gray-200 dark:border-gray-700"
                             onClick={() => viewDetails(complaint.id)}
                           >
-                            <td className="px-4 py-5 rounded-l-lg" data-label="Complaint ID">
+                            <td className="px-4 py-5 rounded-l-lg text-gray-900 dark:text-white" data-label="Complaint ID">
                               <strong className="font-mono">{getTrackingId(complaint)}</strong>
                             </td>
-                            <td className="px-4 py-5" data-label="Citizen Name">{complaint.user_name || 'N/A'}</td>
-                            <td className="px-4 py-5" data-label="Department">{complaint.department_name || 'N/A'}</td>
+                            <td className="px-4 py-5 text-gray-900 dark:text-white" data-label="Citizen Name">{complaint.user_name || 'N/A'}</td>
+                            <td className="px-4 py-5 text-gray-900 dark:text-white" data-label="Department">{complaint.department_name || 'N/A'}</td>
                             <td className="px-4 py-5" data-label="Status">
                               <span className={`px-3 py-1 rounded-full text-xs font-semibold ${statusClass}`}>
                                 {complaint.status}
                               </span>
                             </td>
-                            <td className="px-4 py-5" data-label="Date Filed">{formatDate(complaint.created_at)}</td>
+                            <td className="px-4 py-5 text-gray-900 dark:text-white" data-label="Date Filed">{formatDate(complaint.created_at)}</td>
                             <td className="px-4 py-5 rounded-r-lg" data-label="Action">
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   viewDetails(complaint.id);
                                 }}
-                                className="bg-transparent text-blue-600 px-4 py-2 rounded-lg border border-blue-600 font-semibold text-sm hover:bg-blue-600 hover:text-white transition-all"
+                                className="bg-transparent text-blue-600 dark:text-blue-400 px-4 py-2 rounded-lg border border-blue-600 dark:border-blue-500 font-semibold text-sm hover:bg-blue-600 dark:hover:bg-blue-500 hover:text-white transition-all"
                               >
                                 View
                               </button>
@@ -466,51 +466,51 @@ export default function DepartmentPortalPage({ params }: { params: { dept: strin
         {/* Details Page */}
         {currentView === 'details' && selectedComplaint && (
           <div className="w-full max-w-4xl animate-fadeIn">
-            <div className="bg-white p-10 rounded-2xl shadow-lg border border-gray-200">
-              <h2 className="text-center text-blue-800 text-3xl font-bold mb-8">Complaint Details</h2>
+            <div className="bg-white dark:bg-gray-800 p-10 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700">
+              <h2 className="text-center text-blue-800 dark:text-blue-400 text-3xl font-bold mb-8">Complaint Details</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                <div className="bg-gray-100 p-6 rounded-xl border-l-4 border-blue-600">
-                  <strong className="block text-blue-800 mb-2 text-sm font-semibold">Complaint ID:</strong>
-                  <p className="text-lg">{getTrackingId(selectedComplaint)}</p>
+                <div className="bg-gray-100 dark:bg-gray-700 p-6 rounded-xl border-l-4 border-blue-600 dark:border-blue-500">
+                  <strong className="block text-blue-800 dark:text-blue-400 mb-2 text-sm font-semibold">Complaint ID:</strong>
+                  <p className="text-lg text-gray-900 dark:text-white">{getTrackingId(selectedComplaint)}</p>
                 </div>
-                <div className="bg-gray-100 p-6 rounded-xl border-l-4 border-blue-600">
-                  <strong className="block text-blue-800 mb-2 text-sm font-semibold">Citizen Name:</strong>
-                  <p className="text-lg">{selectedComplaint.user_name || 'N/A'}</p>
+                <div className="bg-gray-100 dark:bg-gray-700 p-6 rounded-xl border-l-4 border-blue-600 dark:border-blue-500">
+                  <strong className="block text-blue-800 dark:text-blue-400 mb-2 text-sm font-semibold">Citizen Name:</strong>
+                  <p className="text-lg text-gray-900 dark:text-white">{selectedComplaint.user_name || 'N/A'}</p>
                 </div>
-                <div className="bg-gray-100 p-6 rounded-xl border-l-4 border-blue-600">
-                  <strong className="block text-blue-800 mb-2 text-sm font-semibold">Citizen Email:</strong>
-                  <p className="text-lg">{selectedComplaint.user_email || 'N/A'}</p>
+                <div className="bg-gray-100 dark:bg-gray-700 p-6 rounded-xl border-l-4 border-blue-600 dark:border-blue-500">
+                  <strong className="block text-blue-800 dark:text-blue-400 mb-2 text-sm font-semibold">Citizen Email:</strong>
+                  <p className="text-lg text-gray-900 dark:text-white">{selectedComplaint.user_email || 'N/A'}</p>
                 </div>
-                <div className="bg-gray-100 p-6 rounded-xl border-l-4 border-blue-600">
-                  <strong className="block text-blue-800 mb-2 text-sm font-semibold">Department:</strong>
-                  <p className="text-lg">{selectedComplaint.department_name || 'N/A'}</p>
+                <div className="bg-gray-100 dark:bg-gray-700 p-6 rounded-xl border-l-4 border-blue-600 dark:border-blue-500">
+                  <strong className="block text-blue-800 dark:text-blue-400 mb-2 text-sm font-semibold">Department:</strong>
+                  <p className="text-lg text-gray-900 dark:text-white">{selectedComplaint.department_name || 'N/A'}</p>
                 </div>
-                <div className="bg-gray-100 p-6 rounded-xl border-l-4 border-blue-600">
-                  <strong className="block text-blue-800 mb-2 text-sm font-semibold">Date Filed:</strong>
-                  <p className="text-lg">{formatDate(selectedComplaint.created_at)}</p>
+                <div className="bg-gray-100 dark:bg-gray-700 p-6 rounded-xl border-l-4 border-blue-600 dark:border-blue-500">
+                  <strong className="block text-blue-800 dark:text-blue-400 mb-2 text-sm font-semibold">Date Filed:</strong>
+                  <p className="text-lg text-gray-900 dark:text-white">{formatDate(selectedComplaint.created_at)}</p>
                 </div>
-                <div className="bg-gray-100 p-6 rounded-xl border-l-4 border-blue-600">
-                  <strong className="block text-blue-800 mb-2 text-sm font-semibold">Current Status:</strong>
-                  <p className="text-lg" id="current-status">{selectedComplaint.status}</p>
+                <div className="bg-gray-100 dark:bg-gray-700 p-6 rounded-xl border-l-4 border-blue-600 dark:border-blue-500">
+                  <strong className="block text-blue-800 dark:text-blue-400 mb-2 text-sm font-semibold">Current Status:</strong>
+                  <p className="text-lg text-gray-900 dark:text-white" id="current-status">{selectedComplaint.status}</p>
                 </div>
-                <div className="bg-gray-100 p-6 rounded-xl border-l-4 border-blue-600 md:col-span-2">
-                  <strong className="block text-blue-800 mb-2 text-sm font-semibold">Title:</strong>
-                  <p className="text-lg">{selectedComplaint.title}</p>
+                <div className="bg-gray-100 dark:bg-gray-700 p-6 rounded-xl border-l-4 border-blue-600 dark:border-blue-500 md:col-span-2">
+                  <strong className="block text-blue-800 dark:text-blue-400 mb-2 text-sm font-semibold">Title:</strong>
+                  <p className="text-lg text-gray-900 dark:text-white">{selectedComplaint.title}</p>
                 </div>
-                <div className="bg-gray-100 p-6 rounded-xl border-l-4 border-blue-600 md:col-span-2">
-                  <strong className="block text-blue-800 mb-2 text-sm font-semibold">Full Description:</strong>
-                  <p className="text-lg">{selectedComplaint.description}</p>
+                <div className="bg-gray-100 dark:bg-gray-700 p-6 rounded-xl border-l-4 border-blue-600 dark:border-blue-500 md:col-span-2">
+                  <strong className="block text-blue-800 dark:text-blue-400 mb-2 text-sm font-semibold">Full Description:</strong>
+                  <p className="text-lg text-gray-900 dark:text-white whitespace-pre-wrap">{selectedComplaint.description}</p>
                 </div>
               </div>
 
               {canUpdateStatus && (
-                <form onSubmit={handleStatusUpdate} className="mt-8 pt-8 border-t border-gray-300 flex items-center gap-4 flex-wrap">
-                  <label htmlFor="status-select" className="font-semibold text-gray-700">Update Status:</label>
+                <form onSubmit={handleStatusUpdate} className="mt-8 pt-8 border-t border-gray-300 dark:border-gray-600 flex items-center gap-4 flex-wrap">
+                  <label htmlFor="status-select" className="font-semibold text-gray-700 dark:text-gray-300">Update Status:</label>
                   <select
                     id="status-select"
                     value={statusUpdate}
                     onChange={(e) => setStatusUpdate(e.target.value)}
-                    className="px-4 py-2 rounded-lg border border-gray-300 min-w-[200px] focus:outline-none focus:border-blue-600"
+                    className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 min-w-[200px] focus:outline-none focus:border-blue-600 dark:focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   >
                     <option value="new">New</option>
                     <option value="triaged">Triaged</option>
@@ -522,7 +522,7 @@ export default function DepartmentPortalPage({ params }: { params: { dept: strin
                   <button
                     type="submit"
                     disabled={updatingStatus}
-                    className="bg-blue-600 text-white px-6 py-2 rounded-lg font-semibold flex items-center gap-2 hover:bg-blue-700 transition-all disabled:opacity-50"
+                    className="bg-blue-600 dark:bg-blue-500 text-white px-6 py-2 rounded-lg font-semibold flex items-center gap-2 hover:bg-blue-700 dark:hover:bg-blue-600 transition-all disabled:opacity-50"
                   >
                     <CheckCircle className="w-5 h-5" />
                     <span>{updatingStatus ? 'Updating...' : 'Update Status'}</span>
@@ -532,7 +532,7 @@ export default function DepartmentPortalPage({ params }: { params: { dept: strin
 
               <button
                 onClick={() => setCurrentView('dashboard')}
-                className="mt-6 bg-gray-800 text-white px-6 py-3 rounded-lg font-semibold flex items-center gap-2 hover:bg-gray-900 transition-all hover:-translate-y-1 hover:shadow-lg"
+                className="mt-6 bg-gray-800 dark:bg-gray-700 text-white px-6 py-3 rounded-lg font-semibold flex items-center gap-2 hover:bg-gray-900 dark:hover:bg-gray-600 transition-all hover:-translate-y-1 hover:shadow-lg"
               >
                 <ArrowLeft className="w-5 h-5" />
                 <span>Back to Dashboard</span>
@@ -543,7 +543,7 @@ export default function DepartmentPortalPage({ params }: { params: { dept: strin
       </main>
 
       {/* Footer */}
-      <footer className="bg-gray-800 text-white text-center py-4 text-sm">
+      <footer className="bg-gray-800 dark:bg-gray-900 text-white text-center py-4 text-sm">
         <p>This is a simulated {departmentName} website for educational purposes only.</p>
       </footer>
 
@@ -596,6 +596,11 @@ export default function DepartmentPortalPage({ params }: { params: { dept: strin
             text-align: left;
             font-weight: 600;
             color: #0a58ca;
+          }
+          @media (prefers-color-scheme: dark) {
+            .dept-table td::before {
+              color: #60a5fa;
+            }
           }
         }
       `}} />
