@@ -124,6 +124,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (error) {
         console.error('OAuth error:', error);
+        // Provide helpful error messages
+        if (error.message?.includes('provider is not enabled') || error.message?.includes('Unsupported provider')) {
+          throw new Error(`${provider.charAt(0).toUpperCase() + provider.slice(1)} OAuth is not enabled. Please enable it in Supabase Dashboard > Authentication > Providers.`);
+        }
         throw error;
       }
     } catch (error) {
