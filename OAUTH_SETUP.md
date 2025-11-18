@@ -56,7 +56,7 @@ You need to configure where Supabase redirects after OAuth callback:
 1. Go to: https://supabase.com/dashboard/project/hwlngdpexkgbtrzatfox/authentication/url-configuration
 2. Under **"Redirect URLs"**, add:
    - For local development: `http://localhost:3000/auth/callback`
-   - For production: `https://yourdomain.com/auth/callback` (replace with your actual domain)
+   - For production: `https://grievancego.vercel.app/auth/callback`
 
 **Important Notes:**
 - The GitHub/Google OAuth app callback should be: `https://hwlngdpexkgbtrzatfox.supabase.co/auth/v1/callback` (Supabase handles this)
@@ -66,8 +66,10 @@ You need to configure where Supabase redirects after OAuth callback:
 **Flow:**
 1. User clicks "Sign in with GitHub" → GitHub OAuth
 2. GitHub redirects to → `https://hwlngdpexkgbtrzatfox.supabase.co/auth/v1/callback`
-3. Supabase processes OAuth → redirects to → `http://localhost:3000/auth/callback` (your app)
+3. Supabase processes OAuth → redirects to → `https://grievancego.vercel.app/auth/callback` (production) or `http://localhost:3000/auth/callback` (local)
 4. Your app creates user profile and redirects to dashboard
+
+**Production URL:** https://grievancego.vercel.app/
 
 ## Testing
 
