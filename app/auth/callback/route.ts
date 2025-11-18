@@ -32,10 +32,75 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(errorMsg)}`, requestUrl.origin));
   }
 
-  // If no code and no error, redirect to login (might be direct access to callback)
-  if (!code) {
-    console.warn('Callback accessed without code parameter');
+  // If no code and no error, check if there's a hash fragment (Supabase might use hash)
+  // Also check for other possible parameter formats
+  if (!code && !error) {
+    // Check if URL has hash fragment (some OAuth flows use hash)
+    const hashMatch = requestUrl.hash.match(/code=([^&]+)/);
+    const codeFromHash = hashMatch ? hashMatch[1] : null;
+    
+    if (codeFromHash) {
+      // Use code from hash
+      try {
+        const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(codeFromHash);
+        
+        if (exchangeError) {
+          console.error('Error exchanging code from hash:', exchangeError);
+          return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(exchangeError.message || 'oauth_error')}`, requestUrl.origin));
+        }
+        
+        if (data?.session) {
+          return await handleSuccessfulAuth(data.session, requestUrl);
+        }
+      } catch (error: any) {
+        console.error('OAuth callback error (hash):', error);
+        return NextResponse.redirect(new URL('/login?error=callback_error', requestUrl.origin));
+      }
+    }
+    
+    // If still no code, log the full URL for debugging and redirect
+    console.warn('Callback accessed without code parameter. Full URL:', requestUrl.href);
+    console.warn('Search params:', Object.fromEntries(requestUrl.searchParams));
     return NextResponse.redirect(new URL('/login?error=invalid_callback', requestUrl.origin));
+  }
+  
+  // Helper function to handle successful authentication
+  async function handleSuccessfulAuth(session: any, requestUrl: URL) {
+    try {
+      // Check if user profile exists in backend
+      const verifyResponse = await fetch(`${requestUrl.origin}/api/auth/verify`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ token: session.access_token }),
+      });
+
+      if (verifyResponse.status === 404) {
+        // User profile doesn't exist - redirect to profile creation
+        return NextResponse.redirect(
+          new URL(`/register?supabase_user_id=${session.user.id}&email=${encodeURIComponent(session.user.email || '')}`, requestUrl.origin)
+        );
+      } else if (verifyResponse.ok) {
+        // User profile exists - get role and redirect
+        const userData = await verifyResponse.json();
+        let redirectPath = '/user/dashboard';
+        
+        if (userData.role === 'admin') {
+          redirectPath = '/admin/dashboard';
+        } else if (userData.role === 'department' || userData.role === 'department_admin') {
+          redirectPath = '/department/dashboard';
+        }
+
+        return NextResponse.redirect(new URL(redirectPath, requestUrl.origin));
+      } else {
+        console.error('Error verifying user:', await verifyResponse.text());
+        return NextResponse.redirect(new URL('/login?error=verification_failed', requestUrl.origin));
+      }
+    } catch (error) {
+      console.error('Error handling successful auth:', error);
+      return NextResponse.redirect(new URL('/login?error=verification_failed', requestUrl.origin));
+    }
   }
 
   if (code) {
@@ -58,36 +123,7 @@ export async function GET(request: NextRequest) {
       }
 
       if (data?.session) {
-        // Check if user profile exists in backend
-        const verifyResponse = await fetch(`${requestUrl.origin}/api/auth/verify`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ token: data.session.access_token }),
-        });
-
-        if (verifyResponse.status === 404) {
-          // User profile doesn't exist - redirect to profile creation
-          return NextResponse.redirect(
-            new URL(`/register?supabase_user_id=${data.session.user.id}&email=${encodeURIComponent(data.session.user.email || '')}`, requestUrl.origin)
-          );
-        } else if (verifyResponse.ok) {
-          // User profile exists - get role and redirect
-          const userData = await verifyResponse.json();
-          let redirectPath = '/user/dashboard';
-          
-          if (userData.role === 'admin') {
-            redirectPath = '/admin/dashboard';
-          } else if (userData.role === 'department' || userData.role === 'department_admin') {
-            redirectPath = '/department/dashboard';
-          }
-
-          return NextResponse.redirect(new URL(redirectPath, requestUrl.origin));
-        } else {
-          console.error('Error verifying user:', await verifyResponse.text());
-          return NextResponse.redirect(new URL('/login?error=verification_failed', requestUrl.origin));
-        }
+        return await handleSuccessfulAuth(data.session, requestUrl);
       }
     } catch (error) {
       console.error('OAuth callback error:', error);
