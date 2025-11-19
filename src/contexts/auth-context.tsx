@@ -22,6 +22,7 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const TOKEN_KEY = 'auth_token';
+const LEGACY_TOKEN_KEY = 'token';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User>(null);
@@ -30,6 +31,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const verifyingRef = useRef(false);
   const checkedRef = useRef(false);
+
+  const clearStoredTokens = () => {
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(LEGACY_TOKEN_KEY);
+  };
 
   // Fix hydration issues
   useEffect(() => {
@@ -46,15 +52,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     checkedRef.current = true;
 
     try {
-      const token = localStorage.getItem(TOKEN_KEY);
-      if (token) {
-        await verifyToken(token);
+      const existingToken = localStorage.getItem(TOKEN_KEY) || localStorage.getItem(LEGACY_TOKEN_KEY);
+
+      if (existingToken && !localStorage.getItem(TOKEN_KEY)) {
+        localStorage.setItem(TOKEN_KEY, existingToken);
+      }
+
+      if (existingToken) {
+        await verifyToken(existingToken);
       } else {
         setUser(null);
       }
     } catch (error) {
       console.error('Error checking session:', error);
-      localStorage.removeItem(TOKEN_KEY);
+      clearStoredTokens();
       setUser(null);
     } finally {
       setLoading(false);
@@ -90,19 +101,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           role: userData.role,
           department_id: userData.department_id
         });
-      } else {
-        // Token invalid, remove it
-        localStorage.removeItem(TOKEN_KEY);
+        } else {
+          // Token invalid, remove it
+          clearStoredTokens();
+          setUser(null);
+        }
+      } catch (error) {
+        console.error('Error verifying token:', error);
+        clearStoredTokens();
         setUser(null);
+      } finally {
+        verifyingRef.current = false;
       }
-    } catch (error) {
-      console.error('Error verifying token:', error);
-      localStorage.removeItem(TOKEN_KEY);
-      setUser(null);
-    } finally {
-      verifyingRef.current = false;
-    }
-  };
+    };
 
   const login = async (username: string, password: string) => {
     try {
@@ -121,8 +132,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const data = await response.json();
       
-      // Store token
-      localStorage.setItem(TOKEN_KEY, data.access_token);
+        // Store token (keep legacy key for older pages still reading "token")
+        localStorage.setItem(TOKEN_KEY, data.access_token);
+        localStorage.setItem(LEGACY_TOKEN_KEY, data.access_token);
       
       // Set user
       setUser({
@@ -141,7 +153,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     try {
-      localStorage.removeItem(TOKEN_KEY);
+        clearStoredTokens();
       setUser(null);
       router.push('/login');
     } catch (error) {
