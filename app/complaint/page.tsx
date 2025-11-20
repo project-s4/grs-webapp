@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, CheckCircle, Mic, Camera, FileText, Keyboard, MicOff } from 'lucide-react';
-import VoiceImageComplaintForm from '@/src/components/VoiceImageComplaintForm';
+import { ArrowLeft, CheckCircle, Mic, Camera, FileText, Keyboard } from 'lucide-react';
+// import VoiceImageComplaintForm from '@/src/components/VoiceImageComplaintForm';
 import AuthGuard from '@/src/components/auth-guard';
 import { complaintService, ComplaintCreate } from '@/src/services/complaints';
 import { departmentService, Department } from '@/src/services/departments';
@@ -19,7 +19,7 @@ function ComplaintPageContent() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Complaint filing mode: 'manual' or 'voice'
-  const [filingMode, setFilingMode] = useState<'manual' | 'voice'>('manual');
+  // const [filingMode, setFilingMode] = useState<'manual' | 'voice'>('manual');
 
   // Form data state
   const [formData, setFormData] = useState({
@@ -65,6 +65,8 @@ function ComplaintPageContent() {
     fetchDepartments();
   }, []);
 
+  // Voice & Image Complaint form handler - commented out as feature is disabled
+  /*
   const handleVoiceImageSubmit = async (data: any) => {
     try {
       setError('');
@@ -123,6 +125,7 @@ function ComplaintPageContent() {
       setIsSubmitting(false);
     }
   };
+  */
 
   // Form input handler
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -296,80 +299,7 @@ function ComplaintPageContent() {
           </div>
         )}
 
-        {/* Filing Mode Selection */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">How would you like to file your complaint?</h2>
-          <div className="grid grid-cols-2 gap-4">
-            <button
-              type="button"
-              onClick={() => setFilingMode('manual')}
-              className={`flex flex-col items-center justify-center p-6 border-2 rounded-lg transition-all ${filingMode === 'manual'
-                  ? 'border-primary-600 bg-primary-50 dark:bg-primary-900/20'
-                  : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
-                }`}
-            >
-              <Keyboard className={`w-10 h-10 mb-3 ${filingMode === 'manual'
-                  ? 'text-primary-600 dark:text-primary-400'
-                  : 'text-gray-400'
-                }`} />
-              <span className="text-base font-semibold text-gray-900 dark:text-white mb-1">Manual Entry</span>
-              <span className="text-sm text-gray-600 dark:text-gray-400 text-center">
-                Type your complaint details manually
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setFilingMode('voice')}
-              className={`flex flex-col items-center justify-center p-6 border-2 rounded-lg transition-all ${filingMode === 'voice'
-                  ? 'border-primary-600 bg-primary-50 dark:bg-primary-900/20'
-                  : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
-                }`}
-            >
-              <Mic className={`w-10 h-10 mb-3 ${filingMode === 'voice'
-                  ? 'text-primary-600 dark:text-primary-400'
-                  : 'text-gray-400'
-                }`} />
-              <span className="text-base font-semibold text-gray-900 dark:text-white mb-1">Voice & Image</span>
-              <span className="text-sm text-gray-600 dark:text-gray-400 text-center">
-                Record voice or upload images with AI analysis
-              </span>
-            </button>
-          </div>
-        </div>
-
-        {/* Voice/Image Form */}
-        {filingMode === 'voice' ? (
-          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Voice & Image Complaint</h2>
-              <button
-                type="button"
-                onClick={() => setFilingMode('manual')}
-                className="text-sm text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 flex items-center"
-              >
-                <Keyboard className="w-4 h-4 mr-1" />
-                Switch to Manual
-              </button>
-            </div>
-            <div className="space-y-4">
-              {loading && departments.length === 0 ? (
-                <div className="text-center py-8">
-                  <div className="animate-spin rounded-full h-12 w-12 border-4 border-primary-200 dark:border-primary-800 mx-auto mb-4 border-t-primary-600 dark:border-t-primary-400"></div>
-                  <p className="text-gray-600 dark:text-gray-400">Loading departments...</p>
-                </div>
-              ) : (
-                <VoiceImageComplaintForm
-                  onSubmit={handleVoiceImageSubmit}
-                  onCancel={() => {
-                    setFilingMode('manual');
-                    setError('');
-                  }}
-                />
-              )}
-            </div>
-          </div>
-        ) : (
-          /* Main form */
+        {/* Main form */}
           <form onSubmit={handleFormSubmit} className="space-y-6">
             {/* Complaint Type Selection */}
             <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
