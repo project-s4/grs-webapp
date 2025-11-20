@@ -41,7 +41,7 @@ interface User {
 
 export default function UserDashboard() {
   const router = useRouter();
-  const { user: authUser, loading: authLoading } = useAuth();
+  const { user: authUser, loading: authLoading, logout } = useAuth();
   const [user, setUser] = useState<User | null>(null);
   const [complaints, setComplaints] = useState<Complaint[]>([]);
   const [loading, setLoading] = useState(true);
@@ -164,10 +164,14 @@ export default function UserDashboard() {
   };
 
   const handleLogout = () => {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('auth_token');
-    }
-    window.location.href = '/login';
+    logout().catch((error) => {
+      console.error('Logout failed:', error);
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('token');
+        window.location.href = '/login';
+      }
+    });
   };
 
   const handleFilterChange = (filterType: string, value: string) => {
