@@ -97,7 +97,7 @@ export default function ChatBot() {
       <motion.button
         onClick={toggleChat}
         className={`fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full shadow-lg transition-all duration-300 ${
-          isOpen ? 'bg-red-500 hover:bg-red-600' : 'bg-blue-600 hover:bg-blue-700 chat-button-pulse'
+          isOpen ? 'bg-error-500 hover:bg-error-600' : 'bg-primary-600 hover:bg-primary-700 chat-button-pulse'
         } text-white flex items-center justify-center`}
         whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.9 }}
@@ -148,7 +148,7 @@ export default function ChatBot() {
                 </div>
                 <div>
                   <h3 className="font-semibold text-sm">GRS Assistant</h3>
-                  <p className="text-xs text-blue-100">Online • Ready to help</p>
+                  <p className="text-xs text-primary-100">Online • Ready to help</p>
                 </div>
               </div>
               <div className="flex items-center space-x-2">
@@ -193,7 +193,7 @@ export default function ChatBot() {
                         className={`w-full max-w-[16rem] sm:max-w-[20rem] rounded-2xl px-3.5 py-3 ${
                             message.role === 'user'
                               ? 'bg-primary-600 text-white shadow-lg'
-                              : 'bg-white/95 dark:bg-slate-800/90 text-gray-800 dark:text-gray-100 border border-primary-100/40 dark:border-slate-700/60 shadow-sm'
+                              : 'bg-white/95 dark:bg-secondary-800/90 text-gray-800 dark:text-gray-100 border border-primary-100/40 dark:border-secondary-700/60 shadow-sm'
                           }`}
                         >
                           <div className={`flex items-start space-x-2 ${
@@ -202,7 +202,7 @@ export default function ChatBot() {
                             <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
                               message.role === 'user'
                                 ? 'bg-primary-500 text-white shadow'
-                                : 'bg-primary-100 text-primary-700 dark:bg-slate-700 dark:text-primary-100 shadow'
+                                : 'bg-primary-100 text-primary-700 dark:bg-secondary-700 dark:text-primary-100 shadow'
                             }`}>
                               {message.role === 'user' ? (
                                 <User size={14} className="text-current" />
@@ -217,7 +217,7 @@ export default function ChatBot() {
                                 <ReactMarkdown>{message.content}</ReactMarkdown>
                               </div>
                               <div className={`text-xs mt-1 ${
-                                message.role === 'user' ? 'text-blue-100' : 'text-gray-500 dark:text-gray-400'
+                                message.role === 'user' ? 'text-primary-100' : 'text-gray-500 dark:text-gray-400'
                               }`}>
                                 {formatTime(message.timestamp)}
                               </div>
@@ -234,7 +234,7 @@ export default function ChatBot() {
                         animate={{ opacity: 1, y: 0 }}
                         className="flex justify-start"
                       >
-                        <div className="bg-white/95 dark:bg-slate-800/90 text-gray-800 dark:text-gray-100 border border-primary-100/40 dark:border-slate-700/60 rounded-2xl px-4 py-3 shadow-sm">
+                        <div className="bg-white/95 dark:bg-secondary-800/90 text-gray-800 dark:text-gray-100 border border-primary-100/40 dark:border-secondary-700/60 rounded-2xl px-4 py-3 shadow-sm">
                           <div className="flex items-center space-x-2">
                             <Bot size={14} className="text-primary-600 dark:text-primary-300" />
                             <div className="flex space-x-1">
@@ -250,7 +250,7 @@ export default function ChatBot() {
                   </div>
 
                   {/* Input */}
-                  <div className="p-4 bg-white/95 dark:bg-slate-900/85 border-t border-primary-100/40 dark:border-slate-800">       
+                  <div className="p-4 bg-white/95 dark:bg-secondary-900/85 border-t border-primary-100/40 dark:border-secondary-800">       
                     <div className="flex space-x-2">
                       <input
                         ref={inputRef}

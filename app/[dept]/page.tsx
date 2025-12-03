@@ -406,7 +406,7 @@ export default function DepartmentPortalPage({ params }: { params: { dept: strin
   const getStatusClass = (status: string) => {
     const normalized = status.toLowerCase().replace(/\s+/g, '').replace(/_/g, '');
     if (normalized.includes('pending') || normalized === 'new') {
-      return 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200';
+      return 'bg-warning-100 dark:bg-warning-900 text-warning-800 dark:text-warning-200';
     } else if (normalized.includes('progress')) {
       return 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200';
     } else if (normalized.includes('resolved')) {

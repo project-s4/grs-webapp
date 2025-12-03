@@ -5,15 +5,25 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --toast-bg: #ffffff;
+    --toast-color: #1f2937;
+  }
+
+  .dark {
+    --toast-bg: #1f2937;
+    --toast-color: #f9fafb;
+  }
+
   html {
-    font-family: 'Poppins', 'Inter', system-ui, sans-serif;
+    font-family: 'Inter', 'Poppins', system-ui, sans-serif;
     scroll-behavior: smooth;
   }
-  
+
   body {
     @apply bg-gradient-to-br from-gray-50 via-white to-gray-100 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 text-gray-900 dark:text-gray-100 transition-colors duration-500;
   }
-  
+
   * {
     @apply border-gray-200 dark:border-gray-700;
   }
@@ -68,10 +78,14 @@
     @apply btn bg-white/50 dark:bg-gray-800/50 backdrop-blur-md hover:bg-white/80 dark:hover:bg-gray-800/80 text-gray-700 dark:text-gray-300 border-2 border-gray-200/80 dark:border-gray-600/80 hover:border-primary-400 dark:hover:border-primary-500 focus:ring-primary-500 shadow-sm hover:shadow-md;
   }
   
+  .btn-info {
+    @apply btn bg-info-600 hover:bg-info-700 text-white shadow-soft hover:shadow-medium focus:ring-info-500 active:scale-95;
+  }
+
   .btn-outline {
     @apply btn bg-white/5 dark:bg-gray-900/20 backdrop-blur-sm border-2 border-primary-500 dark:border-primary-400 text-primary-600 dark:text-primary-400 hover:bg-gradient-to-r hover:from-primary-600 hover:to-primary-700 hover:text-white hover:border-transparent focus:ring-primary-500 active:scale-95 shadow-sm hover:shadow-lg;
   }
-  
+
   .btn-sm {
     @apply px-3 py-1.5 text-xs;
   }
@@ -189,13 +203,13 @@
   .loading-dots > div:nth-child(1) {
     animation-delay: 0ms;
   }
-  
+
   .loading-dots > div:nth-child(2) {
-    animation-delay: 0ms;
+    animation-delay: 150ms;
   }
-  
+
   .loading-dots > div:nth-child(3) {
-    animation-delay: 0ms;
+    animation-delay: 300ms;
   }
   
   /* Skeleton Loading */
@@ -297,7 +311,7 @@
   }
   
   .chat-input {
-    @apply flex-1 p-4 border border-transparent rounded-full focus:outline-none focus:ring-2 focus:ring-primary-400 dark:focus:ring-primary-500 text-sm placeholder-gray-500 dark:placeholder-gray-400 transition-all duration-200 bg-white/90 dark:bg-slate-900/80;
+    @apply flex-1 p-4 border border-transparent rounded-full focus:outline-none focus:ring-2 focus:ring-primary-400 dark:focus:ring-primary-500 text-sm placeholder-gray-500 dark:placeholder-gray-400 transition-all duration-200 bg-white/90 dark:bg-secondary-900/80;
   }
 
   .chat-input:focus {
@@ -305,8 +319,7 @@
   }
 
   .chat-send-button {
-    @apply p-3 text-white rounded-full disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex-shrink-0 shadow-md hover:shadow-lg active:scale-95;
-    background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+    @apply p-3 bg-gradient-to-r from-primary-600 to-primary-700 text-white rounded-full disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex-shrink-0 shadow-md hover:shadow-lg active:scale-95;
   }
 
   .chat-window {
@@ -315,16 +328,15 @@
   }
 
   .dark .chat-window {
-    background: linear-gradient(135deg, rgba(17,24,39,0.95) 0%, rgba(15,23,42,0.95) 100%);
+    background: linear-gradient(135deg, rgba(31,41,55,0.95) 0%, rgba(15,23,42,0.95) 100%);
   }
 
   .chat-header {
-    @apply text-white p-4 flex items-center justify-between;
-    background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%);
+    @apply text-white p-4 flex items-center justify-between bg-gradient-to-r from-primary-700 to-primary-600;
   }
 
   .chat-messages {
-    @apply h-[28rem] overflow-y-auto p-5 space-y-4 bg-gradient-to-b from-gray-50 via-white to-gray-100 dark:from-slate-900 dark:via-slate-950 dark:to-slate-900;
+    @apply h-[28rem] overflow-y-auto p-5 space-y-4 bg-gradient-to-b from-gray-50 via-white to-gray-100 dark:from-secondary-900 dark:via-secondary-950 dark:to-secondary-900;
   }
   
   /* Custom scrollbar for chat messages */
@@ -363,13 +375,13 @@
   .typing-dot:nth-child(1) {
     animation-delay: 0s;
   }
-  
+
   .typing-dot:nth-child(2) {
-    animation-delay: 0s;
+    animation-delay: 0.2s;
   }
-  
+
   .typing-dot:nth-child(3) {
-    animation-delay: 0s;
+    animation-delay: 0.4s;
   }
   
   /* Pulse effect for chat button */

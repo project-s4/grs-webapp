@@ -213,7 +213,7 @@ export default function UserDashboard() {
     switch (priority) {
       case 'Critical': return 'text-red-600 bg-red-100';
       case 'High': return 'text-orange-600 bg-orange-100';
-      case 'Medium': return 'text-yellow-600 bg-yellow-100';
+      case 'Medium': return 'text-warning-600 bg-warning-100';
       case 'Low': return 'text-green-600 bg-green-100';
       default: return 'text-gray-600 bg-gray-100';
     }
@@ -442,7 +442,7 @@ export default function UserDashboard() {
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center">
-                    <div className="w-2 h-2 bg-yellow-500 rounded-full mr-2"></div>
+                    <div className="w-2 h-2 bg-warning-500 rounded-full mr-2"></div>
                     <span className="text-sm text-gray-600 dark:text-gray-400 text-left">Pending</span>
                   </div>
                   <span className="text-sm font-semibold text-gray-900 dark:text-white text-right">{complaints.filter(c => c.status === 'Pending').length}</span>
@@ -761,7 +761,7 @@ export default function UserDashboard() {
                         )}
                         {complaint.satisfaction && (
                           <div className="flex items-center">
-                            <Star className="w-4 h-4 mr-1 text-yellow-500" />
+                            <Star className="w-4 h-4 mr-1 text-warning-500" />
                             <span>{complaint.satisfaction}/5 rating</span>
                           </div>
                         )}

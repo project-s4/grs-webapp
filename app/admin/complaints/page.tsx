@@ -258,7 +258,7 @@ const [departments, setDepartments] = useState<{ id: string; name: string }[]>([
     switch (priority?.toLowerCase()) {
       case 'critical': return 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-200';
       case 'high': return 'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-200';
-      case 'medium': return 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-200';
+      case 'medium': return 'bg-warning-100 text-warning-700 dark:bg-warning-900 dark:text-warning-200';
       case 'low': return 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200';
       default: return 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300';
     }

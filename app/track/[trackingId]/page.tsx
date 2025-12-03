@@ -406,7 +406,7 @@ export default function TrackComplaintPage({ params }: { params: { trackingId: s
                 </span>
                 <span className={`inline-flex items-center px-3 py-1.5 rounded-md text-sm font-medium ${complaint.priority === 'Critical' ? 'text-red-700 bg-red-100 dark:bg-red-900/30 dark:text-red-400' :
                   complaint.priority === 'High' ? 'text-orange-700 bg-orange-100 dark:bg-orange-900/30 dark:text-orange-400' :
-                    complaint.priority === 'Medium' ? 'text-yellow-700 bg-yellow-100 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                    complaint.priority === 'Medium' ? 'text-warning-700 bg-warning-100 dark:bg-warning-900/30 dark:text-warning-400' :
                       'text-green-700 bg-green-100 dark:bg-green-900/30 dark:text-green-400'
                   }`}>
                   {complaint.priority} Priority
@@ -663,7 +663,7 @@ export default function TrackComplaintPage({ params }: { params: { trackingId: s
               </div>
               {complaint.satisfaction && (
                 <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-4 text-center border border-gray-200 dark:border-gray-700">
-                  <Star className="w-6 h-6 mx-auto mb-2 text-yellow-500" />
+                  <Star className="w-6 h-6 mx-auto mb-2 text-warning-500" />
                   <p className="text-2xl font-bold text-gray-900 dark:text-white">{complaint.satisfaction}/5</p>
                   <p className="text-sm text-gray-600 dark:text-gray-400">Satisfaction</p>
                 </div>

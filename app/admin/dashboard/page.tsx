@@ -243,7 +243,7 @@ export default function AdminDashboardPage() {
     switch (priority) {
       case 'Critical': return 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-200';
       case 'High': return 'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-200';
-      case 'Medium': return 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-200';
+      case 'Medium': return 'bg-warning-100 text-warning-700 dark:bg-warning-900 dark:text-warning-200';
       case 'Low': return 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200';
       default: return 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300';
     }

@@ -158,7 +158,7 @@ export default function UserComplaintsPage() {
         switch (priority) {
             case 'Critical': return 'text-red-600 bg-red-100 dark:bg-red-900 dark:text-red-200';
             case 'High': return 'text-orange-600 bg-orange-100 dark:bg-orange-900 dark:text-orange-200';
-            case 'Medium': return 'text-yellow-600 bg-yellow-100 dark:bg-yellow-900 dark:text-yellow-200';
+            case 'Medium': return 'text-warning-600 bg-warning-100 dark:bg-warning-900 dark:text-warning-200';
             case 'Low': return 'text-green-600 bg-green-100 dark:bg-green-900 dark:text-green-200';
             default: return 'text-gray-600 bg-gray-100 dark:bg-gray-800 dark:text-gray-300';
         }
@@ -410,7 +410,7 @@ export default function UserComplaintsPage() {
                                             )}
                                             {complaint.satisfaction && (
                                                 <div className="flex items-center">
-                                                    <Star className="w-4 h-4 mr-1 text-yellow-500" />
+                                                    <Star className="w-4 h-4 mr-1 text-warning-500" />
                                                     {complaint.satisfaction}/5 rating
                                                 </div>
                                             )}

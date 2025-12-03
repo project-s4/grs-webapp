@@ -111,7 +111,7 @@ export default function DashboardPage() {
 
   const getStatusBadge = (status: string) => {
     const statusClasses = {
-      pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
+      pending: 'bg-warning-100 text-warning-800 dark:bg-warning-900 dark:text-warning-200',
       in_progress: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
       resolved: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
       rejected: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',

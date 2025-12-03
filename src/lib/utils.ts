@@ -30,24 +30,44 @@ export function formatDate(date: Date): string {
   }
 }
 
-// Get status badge styling
+// Get status badge styling - uses design system badge classes
 export function getStatusBadge(status: string): string {
   const statusLower = status.toLowerCase().replace(/\s+/g, '_').replace('-', '_');
-  
+
   const badgeClasses: { [key: string]: string } = {
-    'pending': 'text-yellow-800 bg-yellow-100 dark:text-yellow-300 dark:bg-yellow-900',
-    'new': 'text-yellow-800 bg-yellow-100 dark:text-yellow-300 dark:bg-yellow-900',
-    'in_progress': 'text-blue-800 bg-blue-100 dark:text-blue-300 dark:bg-blue-900',
-    'in-progress': 'text-blue-800 bg-blue-100 dark:text-blue-300 dark:bg-blue-900',
-    'in progress': 'text-blue-800 bg-blue-100 dark:text-blue-300 dark:bg-blue-900',
-    'resolved': 'text-green-800 bg-green-100 dark:text-green-300 dark:bg-green-900',
-    'triaged': 'text-purple-800 bg-purple-100 dark:text-purple-300 dark:bg-purple-900',
-    'escalated': 'text-red-800 bg-red-100 dark:text-red-300 dark:bg-red-900',
-    'closed': 'text-gray-800 bg-gray-100 dark:text-gray-300 dark:bg-gray-900',
-    'rejected': 'text-red-800 bg-red-100 dark:text-red-300 dark:bg-red-900',
+    'pending': 'badge-warning',
+    'new': 'badge-warning',
+    'in_progress': 'badge-info',
+    'in-progress': 'badge-info',
+    'in progress': 'badge-info',
+    'resolved': 'badge-success',
+    'triaged': 'badge-info',
+    'escalated': 'badge-error',
+    'closed': 'badge-secondary',
+    'rejected': 'badge-error',
   };
-  
-  return badgeClasses[statusLower] || 'text-gray-800 bg-gray-100 dark:text-gray-300 dark:bg-gray-900';
+
+  return badgeClasses[statusLower] || 'badge-secondary';
+}
+
+// Alternative status color function for non-badge elements
+export function getStatusColor(status: string): string {
+  const statusLower = status.toLowerCase().replace(/\s+/g, '_').replace('-', '_');
+
+  const statusColors: { [key: string]: string } = {
+    'pending': 'bg-warning-500 text-white',
+    'new': 'bg-warning-500 text-white',
+    'in_progress': 'bg-info-500 text-white',
+    'in-progress': 'bg-info-500 text-white',
+    'in progress': 'bg-info-500 text-white',
+    'resolved': 'bg-success-500 text-white',
+    'triaged': 'bg-info-500 text-white',
+    'escalated': 'bg-error-500 text-white',
+    'closed': 'bg-secondary-500 text-white',
+    'rejected': 'bg-error-500 text-white',
+  };
+
+  return statusColors[statusLower] || 'bg-secondary-500 text-white';
 }
 
 // Format file size
@@ -93,21 +113,21 @@ export function truncateText(text: string, maxLength: number): string {
   return text.substr(0, maxLength) + '...';
 }
 
-// Get priority color class
+// Get priority color class - uses design system colors
 export function getPriorityColor(priority: string): string {
   const priorityLower = priority.toLowerCase();
-  
+
   switch (priorityLower) {
     case 'critical':
-      return 'text-red-800 bg-red-100';
+      return 'badge-error';
     case 'high':
-      return 'text-orange-800 bg-orange-100';
+      return 'badge-warning';
     case 'medium':
-      return 'text-yellow-800 bg-yellow-100';
+      return 'badge-info';
     case 'low':
-      return 'text-green-800 bg-green-100';
+      return 'badge-success';
     default:
-      return 'text-gray-800 bg-gray-100';
+      return 'badge-secondary';
   }
 }
 
