@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, CheckCircle, Mic, Camera, FileText, Keyboard } from 'lucide-react';
+import { ArrowLeft, CheckCircle, FileText, Keyboard } from 'lucide-react';
 // import VoiceImageComplaintForm from '@/src/components/VoiceImageComplaintForm';
 import AuthGuard from '@/src/components/auth-guard';
 import { complaintService, ComplaintCreate } from '@/src/services/complaints';
@@ -27,8 +27,7 @@ function ComplaintPageContent() {
     department_code: '',
     category: '',
     description: '',
-    complaintType: '',
-    mediaType: ''
+    complaintType: ''
   });
 
   useEffect(() => {
@@ -183,8 +182,7 @@ function ComplaintPageContent() {
         subcategory: null,
         source: 'web',
         complaint_metadata: {
-          complaintType: formData.complaintType,
-          mediaType: formData.mediaType
+          complaintType: formData.complaintType
         }
       };
 
@@ -418,60 +416,6 @@ function ComplaintPageContent() {
               </div>
             </div>
 
-            {/* Media Upload Options */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Attach Evidence (Optional)</h2>
-              <div className="grid grid-cols-3 gap-4">
-                <button
-                  type="button"
-                  onClick={() => handleRadioChange('mediaType', 'image')}
-                  className={`flex flex-col items-center justify-center p-4 border-2 rounded-lg transition-all ${formData.mediaType === 'image'
-                      ? 'border-primary-600 bg-primary-50 dark:bg-primary-900/20'
-                      : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
-                    }`}
-                >
-                  <Camera className={`w-8 h-8 mb-2 ${formData.mediaType === 'image'
-                      ? 'text-primary-600 dark:text-primary-400'
-                      : 'text-gray-400'
-                    }`} />
-                  <span className="text-sm font-medium text-gray-900 dark:text-white">Photo</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleRadioChange('mediaType', 'video')}
-                  className={`flex flex-col items-center justify-center p-4 border-2 rounded-lg transition-all ${formData.mediaType === 'video'
-                      ? 'border-primary-600 bg-primary-50 dark:bg-primary-900/20'
-                      : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
-                    }`}
-                >
-                  <svg className={`w-8 h-8 mb-2 ${formData.mediaType === 'video'
-                      ? 'text-primary-600 dark:text-primary-400'
-                      : 'text-gray-400'
-                    }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                  </svg>
-                  <span className="text-sm font-medium text-gray-900 dark:text-white">Video</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleRadioChange('mediaType', 'audio')}
-                  className={`flex flex-col items-center justify-center p-4 border-2 rounded-lg transition-all ${formData.mediaType === 'audio'
-                      ? 'border-primary-600 bg-primary-50 dark:bg-primary-900/20'
-                      : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
-                    }`}
-                >
-                  <Mic className={`w-8 h-8 mb-2 ${formData.mediaType === 'audio'
-                      ? 'text-primary-600 dark:text-primary-400'
-                      : 'text-gray-400'
-                    }`} />
-                  <span className="text-sm font-medium text-gray-900 dark:text-white">Audio</span>
-                </button>
-              </div>
-              <p className="mt-4 text-xs text-gray-500 dark:text-gray-400">
-                You can attach a photo, video, or audio recording. Maximum file size: 5 MB
-              </p>
-            </div>
-
             {/* Description */}
             <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Describe Your Complaint</h2>
@@ -509,7 +453,6 @@ function ComplaintPageContent() {
               </button>
             </div>
           </form>
-        )}
       </main>
     </div>
   );
